@@ -1,0 +1,103 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "idslab"
+version = "0.0.1"
+description = "Evaluation framework for staged intrusion detection systems"
+license = "AGPL-3.0-or-later"
+license-files = ["LICENSE"]
+authors = [{ name = "hashtagRR" }]
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.1",
+    "pyarrow>=14",
+    "pyyaml>=6",
+    "scikit-learn>=1.6",
+]
+
+[project.optional-dependencies]
+xgboost = ["xgboost>=2.0"]
+lightgbm = ["lightgbm>=4.0"]
+imbalance = ["imbalanced-learn>=0.12"]
+pyod = ["pyod>=2.0"]
+dev = ["pytest>=8", "pytest-cov>=5", "hypothesis>=6", "ruff>=0.6", "pyright>=1.1.380", "vulture>=2.11"]
+
+[project.scripts]
+idslab = "idslab.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+idslab = ["examples/*.yaml"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "F",     # pyflakes: undefined names, unused imports, real errors
+    "E", "W",
+    "B",     # bugbear: likely bugs and design problems
+    "A",     # shadowed builtins
+    "ARG",   # unused arguments
+    "C4",
+    "SIM",
+    "RET",
+    "PIE",
+    "PL",    # pylint subset: logic and error checks
+    "UP",
+    "NPY",   # numpy-specific bugs
+    "PD",    # pandas-specific bugs
+    "PERF",
+    "S",     # security
+    "BLE",   # blind except
+    "TRY",
+    "RUF",
+    "PT",
+    "N",
+    "ISC",
+]
+ignore = [
+    "PLR0913",  # many arguments is normal for model and protocol functions
+    "PLR2004",  # numeric constants in protocol code are named in config
+    "PLR0915",
+    "PLR0912",
+    "TRY003",
+    "ISC001",   # conflicts with ruff format
+    "N803", "N806",  # X, X_val: scikit-learn naming
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "PLR2004", "ARG"]
+
+[tool.pyright]
+include = ["src", "tests"]
+venvPath = "."
+venv = ".venv"
+extraPaths = ["src"]
+pythonVersion = "3.10"
+typeCheckingMode = "standard"
+reportMissingImports = "error"
+reportAttributeAccessIssue = "error"
+reportCallIssue = "error"
+reportArgumentType = "error"
+reportOptionalMemberAccess = "error"
+reportUnusedVariable = "warning"
+reportUnnecessaryComparison = "warning"
+reportSelfClsParameterName = "error"
+reportMissingTypeStubs = "none"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-ra"
+
+[tool.coverage.run]
+source = ["idslab"]
+branch = true

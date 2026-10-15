@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+.ruff_cache/
+.pytest_cache/
+.hypothesis/
+.coverage
+coverage.xml
+htmlcov/
+*.egg-info/
+build/
+dist/
+
+# run outputs and datasets stay out of the repository
+/runs/
+/data/
