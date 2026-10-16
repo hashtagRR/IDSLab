@@ -12,6 +12,7 @@ from collections.abc import Collection, Sequence
 import numpy as np
 
 from idslab.config import Config
+from idslab.html_report import render
 from idslab import __version__
 from idslab.runner import data_fingerprints, write_json
 
@@ -360,4 +361,6 @@ def write_report(
     with open(md_path, "w", encoding="utf-8") as f:
         f.write(to_markdown(agg))
     write_json(json_path, agg)
+    with open(os.path.join(run_root, cfg.name, "report.html"), "w", encoding="utf-8") as f:
+        f.write(render(cfg, agg))
     return md_path, json_path

@@ -14,6 +14,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import importlib
+import importlib.util
 import json
 import os
 import re
@@ -26,7 +27,13 @@ import yaml
 TERMINALS = ("BENIGN", "ATTACK")
 OUTPUTS = {"classifier": ("attack", "benign"), "detector": ("anomalous", "normal")}
 OBJECTIVES = ("accuracy", "mcc", "f1", "balanced_accuracy")
-EXTRAS = {"xgboost": "xgboost", "lightgbm": "lightgbm", "pyod": "pyod", "imblearn": "imbalance"}
+EXTRAS = {
+    "xgboost": "xgboost",
+    "lightgbm": "lightgbm",
+    "pyod": "pyod",
+    "imblearn": "imbalance",
+    "torch": "torch",
+}
 DEFAULT_CUTOFFS = [round(0.05 + 0.025 * i, 3) for i in range(37)]
 
 UNCERTAIN, DEFAULT, NEXT = "uncertain", "default", "next"
@@ -859,6 +866,11 @@ def _check_class(
         return
     if not isinstance(params, dict):
         errs.append(f"{where}: params must be a mapping")
+        return
+    missing = [m for m in getattr(cls, "idslab_requires", ()) if importlib.util.find_spec(m) is None]
+    if missing:
+        extras = ", ".join(f"idslab[{EXTRAS.get(m, m)}]" for m in missing)
+        errs.append(f"{where}: {path} needs {missing} (install it with: pip install {extras})")
         return
     contract = getattr(cls, "idslab_contract", None)
     if contract is not None:

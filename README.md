@@ -5,11 +5,12 @@ the model at each stage and the routing between stages in one YAML file. IDSLab 
 chooses every model and threshold on validation data, freezes the design, and reports it on the test
 set next to controls that show whether the extra stages beat the first stage alone.
 
-Status: version 0.0.4. Classifier, type
+Status: version 0.0.5. Classifier, type
 (multiclass) and detector stages; upstream scores as features (out-of-fold); detectors fitted once or
 refitted on each batch; greedy selection on VAL; all binary controls plus type metrics; standard, held-out
 family (zero-day) and natural novelty modes; scores made elsewhere (for example a CNN trained on a
-GPU) with provenance checks; a joint search check on greedy selection.
+GPU) with provenance checks; a joint search check on greedy selection; PyTorch models; Markdown, JSON
+and HTML reports.
 
 ## Install
 
@@ -18,7 +19,8 @@ pip install -e .            # from a clone; Python 3.10 or newer
 pip install -e ".[dev]"     # with the test and check tools
 ```
 
-Optional model libraries: `pip install -e ".[xgboost]"`, `".[pyod]"`, `".[imbalance]"`.
+Optional model libraries: `pip install -e ".[xgboost]"`, `".[lightgbm]"`, `".[pyod]"`, `".[imbalance]"`,
+`".[torch]"` (for `idslab.torch_models.TorchMLPClassifier` and `TorchAutoencoder`).
 
 ## Quick start
 
@@ -28,7 +30,8 @@ idslab validate demo/r1_router_gate.yaml    # checks the config without reading 
 idslab run demo/r1_router_gate.yaml --out demo/runs
 ```
 
-`demo/runs/r1-router-gate/report.md` holds the result. Each seed also writes `summary.json`
+`demo/runs/r1-router-gate/report.md` and `report.html` hold the result (the HTML page adds a map of
+the cascade). Each seed also writes `summary.json`
 (selected configuration, selection trace, controls), `per_flow.parquet`, `val_flow.parquet` and
 `split_ids.parquet`.
 

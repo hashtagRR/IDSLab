@@ -44,6 +44,13 @@ def test_report_aggregates_seeds(two_seeds):
         assert heading in text
     assert chr(0x2014) not in text
     assert chr(0x2013) not in text
+    with open(os.path.join(out, cfg.name, "report.html"), encoding="utf-8") as f:
+        page = f.read()
+    for part in ("<svg", "Cascade map", "Systems on TEST", "Statements", "binary", "router", "gate"):
+        assert part in page
+    assert "<script" not in page
+    assert chr(0x2014) not in page
+    assert chr(0x2013) not in page
 
 
 def test_unfinished_seed_is_left_out(two_seeds):

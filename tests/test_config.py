@@ -375,3 +375,15 @@ def test_route_names_are_checked_against_the_data():
     with pytest.raises(ConfigError, match=r"\['Typo'\] are not types"):
         check_against_data(cfg, {"Normal", "DoS", "Scan"})
     check_against_data(from_dict(four_layer()), {"Normal", "DoS"})
+
+
+def test_missing_torch_names_the_extra(monkeypatch):
+    import idslab.config as config_module  # noqa: PLC0415
+
+    real = config_module.importlib.util.find_spec
+    monkeypatch.setattr(
+        config_module.importlib.util, "find_spec", lambda name: None if name == "torch" else real(name)
+    )
+    raw = base()
+    raw["stages"]["router"]["candidates"] = [{"class": "idslab.torch_models.TorchMLPClassifier"}]
+    assert "pip install idslab[torch]" in errors(raw)

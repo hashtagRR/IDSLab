@@ -55,14 +55,14 @@ def _run(args: argparse.Namespace) -> int:
         )
     if not args.no_report:
         md, _ = write_report(args.out, cfg, args.seeds or (), data_fps)
-        print(f"report: {md}")
+        print(f"report: {md} (and report.html next to it)")
     return 0
 
 
 def _report(args: argparse.Namespace) -> int:
     cfg = load(args.config)
     md, js = write_report(args.out, cfg, args.seeds or ())
-    print(f"report: {md}\nreport data: {js}")
+    print(f"report: {md}\nreport page: {os.path.splitext(md)[0]}.html\nreport data: {js}")
     return 0
 
 
