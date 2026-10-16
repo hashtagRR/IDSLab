@@ -226,6 +226,59 @@ _Loader.add_implicit_resolver(
 )
 
 
+class _Dumper(yaml.SafeDumper):
+    """Writes configs the loader reads back unchanged: only true/false are booleans, so ``off``
+    is written as a plain word."""
+
+
+_Dumper.yaml_implicit_resolvers = _Loader.yaml_implicit_resolvers
+
+
+class _Flow(dict):
+    """A mapping written on one line, as in hand-written configs."""
+
+
+class _FlowList(list):
+    """A list written on one line."""
+
+
+_Dumper.add_representer(_Flow, lambda d, v: d.represent_mapping("tag:yaml.org,2002:map", v, flow_style=True))
+_Dumper.add_representer(
+    _FlowList, lambda d, v: d.represent_sequence("tag:yaml.org,2002:seq", v, flow_style=True)
+)
+
+
+def _scalar(v: Any) -> bool:
+    return v is None or isinstance(v, (str, int, float, bool))
+
+
+def _short(v: Any) -> bool:
+    """A value that reads well on one line: a scalar, a list of scalars, or a small mapping of those."""
+    if _scalar(v):
+        return True
+    if isinstance(v, list):
+        return all(_scalar(x) for x in v) and len(v) <= 12
+    if isinstance(v, dict):
+        return len(v) <= 4 and all(_short(x) for x in v.values())
+    return False
+
+
+def _styled(v: Any, depth: int) -> Any:
+    if isinstance(v, dict):
+        out = {str(k): _styled(x, depth + 1) for k, x in v.items()}
+        return _Flow(out) if depth >= 3 and _short(v) else out
+    if isinstance(v, list):
+        items = [_styled(x, depth + 1) for x in v]
+        return _FlowList(items) if depth >= 2 and all(_scalar(x) for x in v) else items
+    return v
+
+
+def dump_yaml(raw: dict) -> str:
+    """The config as YAML in the shape people write by hand: blocks for sections and stages, one-line
+    maps for routes, decisions, parameters and pipeline steps. ``parse_yaml`` reads it back unchanged."""
+    return yaml.dump(_styled(raw, 0), Dumper=_Dumper, sort_keys=False, allow_unicode=True, width=100)
+
+
 def parse_yaml(text: str) -> Any:
     try:
         return yaml.load(text, Loader=_Loader)  # noqa: S506  (_Loader is a SafeLoader subclass)

@@ -2,10 +2,11 @@
 # Copyright (C) 2026 hashtagRR
 import copy
 import importlib.util
+from importlib import resources
 
 import pytest
 
-from idslab.config import ConfigError, from_dict, parse_yaml, topo_order
+from idslab.config import ConfigError, dump_yaml, from_dict, parse_yaml, topo_order
 
 RF = "sklearn.ensemble.RandomForestClassifier"
 IFOREST = "sklearn.ensemble.IsolationForest"
@@ -387,3 +388,12 @@ def test_missing_torch_names_the_extra(monkeypatch):
     raw = base()
     raw["stages"]["router"]["candidates"] = [{"class": "idslab.torch_models.TorchMLPClassifier"}]
     assert "pip install idslab[torch]" in errors(raw)
+
+
+@pytest.mark.parametrize("name", ["r1_router_gate.yaml", "r2_anomaly_first.yaml", "r1_four_layer.yaml"])
+def test_dump_yaml_round_trips(name):
+    raw = parse_yaml((resources.files("idslab.examples") / name).read_text(encoding="utf-8"))
+    text = dump_yaml(raw)
+    assert parse_yaml(text) == raw
+    assert "'off'" not in text  # YAML 1.2 rules: off is a word
+    assert '"off"' not in text

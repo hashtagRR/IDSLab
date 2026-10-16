@@ -249,3 +249,49 @@ def test_a_job_runs_the_cli_and_only_one_at_a_time(server, ws_dir):
     _, snap, _ = request(srv, "GET", "/api/job")
     assert snap["state"] == "completed", snap["log"]
     assert (ws_dir / "runs" / "r2" / "report.md").is_file()
+
+
+# ---------- builder ----------
+
+
+def test_builder_endpoints(server, ws_dir, r2):
+    srv, _ = server
+    _, cat, _ = request(srv, "GET", "/api/catalog")
+    classes = {e["class"] for e in cat["classifier"]}
+    assert "sklearn.ensemble.RandomForestClassifier" in classes
+    rf = next(e for e in cat["classifier"] if e["class"].endswith("RandomForestClassifier"))
+    assert any(p["name"] == "n_estimators" and p["type"] == "int" for p in rf["params"])
+    assert any(e["class"] == "idslab.prep.Encode" for e in cat["step"])
+
+    _, files, _ = request(srv, "GET", "/api/datafiles")
+    assert "data/train.parquet" in files
+    assert not any(f.startswith("runs/") for f in files)
+    _, data, _ = request(srv, "GET", "/api/dataset?path=data/train.parquet")
+    assert data["suggest"] == {
+        "label": "label",
+        "type": "attack_cat",
+        "normal_type": "Normal",
+        "categorical": ["proto", "service"],
+    }
+
+    _, parsed, _ = request(srv, "POST", "/api/parse", {"yaml": (ws_dir / "r2.yaml").read_text()})
+    assert parsed["ok"]
+    assert parsed["config"]["stages"].keys() == r2["stages"].keys()
+    _, bad, _ = request(srv, "POST", "/api/parse", {"yaml": "a: [1"})
+    assert not bad["ok"]
+
+    _, dumped, _ = request(srv, "POST", "/api/dump", {"config": parsed["config"], "path": "r2.yaml"})
+    assert dumped["ok"]
+    assert "off: " in dumped["yaml"]  # a plain word under YAML 1.2 rules, never quoted
+    assert "'off'" not in dumped["yaml"]
+    broken = dict(parsed["config"], entry="nowhere")
+    _, invalid, _ = request(srv, "POST", "/api/dump", {"config": broken})
+    assert not invalid["ok"]
+    assert "nowhere" in invalid["error"]
+
+    status, _, _ = request(srv, "POST", "/api/layout", {"path": "r2.yaml", "positions": {"screen": [10, 20]}})
+    assert status == 200
+    _, layout, _ = request(srv, "GET", "/api/layout?path=r2.yaml")
+    assert layout == {"positions": {"screen": [10.0, 20.0]}}
+    status, _, _ = request(srv, "POST", "/api/layout", {"path": "notes.txt", "positions": {}})
+    assert status == 400

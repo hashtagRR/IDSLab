@@ -5,6 +5,13 @@ the config, data and IDSLab version fingerprints match.
 
 ## Unreleased
 
+- Visual pipeline builder in the dashboard: drag stages onto a canvas, wire outputs to stages or
+  terminals, drag score edges for features, and edit every stage setting in a panel (models from a
+  catalog with parameter forms, search spaces, pipeline steps, decisions, training rows). A dataset
+  panel reads a sample of the data and suggests the label, type and categorical columns. The config is
+  written by the server with the loader's rules and validated on every change; node positions are
+  saved next to the config.
+- `idslab.config.dump_yaml` writes a config in the shape people write by hand and reads back unchanged.
 - Documentation reorganised: a short README with an overview figure and a table of guides,
   `INSTALL.md`, `docs/architecture.md`, `docs/limitations.md`, and mini READMEs for the example designs
   and the dashboard source. Figures (overview, splits, selection, frontier gap, the three reference

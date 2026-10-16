@@ -154,7 +154,8 @@ export async function configsView(view) {
     cells: [el("a", {class: "link mono", href: `#/config/${enc(c.path)}`, text: c.path}), c.name || "n/a",
       String(c.stages), c.mode, ago(c.mtime),
       el("div", {class: "row"},
-        el("a", {class: "btn small", href: `#/config/${enc(c.path)}`, text: "Edit"}),
+        el("a", {class: "btn small", href: `#/builder/${enc(c.path)}`, text: "Build"}),
+        el("a", {class: "btn small", href: `#/config/${enc(c.path)}`, text: "YAML"}),
         el("a", {class: "btn small", href: `#/command/run/${enc(c.path)}`, text: "Run"}))],
   }));
   view.append(card(`${configs.length} config${configs.length === 1 ? "" : "s"}`, null,
@@ -192,8 +193,9 @@ export async function newConfigView(view) {
     } catch (e) { msg.append(note(e.message, "bad")); }
   });
   view.append(
-    pageHead("New config", "Start from a template. Data paths in a config are relative to the config file, " +
-      "so save it next to its data folder (the example data lives in <folder>/data)."),
+    pageHead("New config", "Start from a template, or draw a design in the visual builder. Data paths in a config are relative to the config file, " +
+      "so save it next to its data folder (the example data lives in <folder>/data).",
+    el("a", {class: "btn primary", href: "#/builder", text: "Visual builder"})),
     card("Template", null, cardBody(cards)),
     card("Save as", null, cardBody(el("div", {class: "stack"},
       field("File", path, "relative to the workspace; .yaml or .yml; an existing file is not replaced"),
@@ -212,7 +214,8 @@ export async function editorView(view, meta, path, setCrumbs) {
   const preview = el("div");
   const textOut = el("pre", {class: "code hidden"});
   const dirtyBadge = badge("Unsaved", "amber");
-  const head = pageHead(path, null, null, [badge("Config", "blue"), dirtyBadge]);
+  const head = pageHead(path, null, el("a", {class: "btn", href: `#/builder/${enc(path)}`, text: "Open in builder"}),
+    [badge("Config", "blue"), dirtyBadge]);
   setCrumbs([["Configs", "#/configs"], [path]]);
   const isDirty = () => area.value !== saved;
 

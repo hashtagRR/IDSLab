@@ -21,16 +21,17 @@ from urllib.parse import parse_qs, unquote, urlsplit
 
 from idslab import __version__
 from idslab.cli import EXAMPLES, validation_text
-from idslab.config import EXTRAS, MODES, OBJECTIVES, ConfigError, from_dict, parse_yaml
+from idslab.config import EXTRAS, MODES, OBJECTIVES, ConfigError, dump_yaml, from_dict, parse_yaml
 from idslab.dashboard.jobs import COMMANDS, DEFAULT_OUT, Job, JobError, build_command
-from idslab.dashboard.workspace import PathError, Workspace, describe
+from idslab.dashboard.catalog import catalog
+from idslab.dashboard.workspace import PathError, Workspace, describe, inspect_data
 from idslab.runner import to_jsonable
 
 logger = logging.getLogger(__name__)
 
 MAX_BODY = 2_000_000
 MAX_FILE = 50_000_000
-STATIC = {"index.html", "styles.css", "app.js", "core.js", "charts.js", "views.js", "editor.js"}
+STATIC = {"index.html", "styles.css", "app.js", "core.js", "charts.js", "views.js", "editor.js", "builder.js"}
 PAGE_CSP = (
     "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
     "frame-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
@@ -56,6 +57,12 @@ class App:
     def __init__(self, workspace: str):
         self.ws = Workspace(workspace)
         self.job = Job(self.ws.root)
+        self._catalog: dict | None = None
+
+    def catalog(self) -> dict:
+        if self._catalog is None:  # imports every listed library once; cached for the session
+            self._catalog = catalog()
+        return self._catalog
 
     def meta(self) -> dict:
         return {
@@ -139,6 +146,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._error(HTTPStatus.NOT_FOUND, str(e))
         except LookupError:
             return self._error(HTTPStatus.NOT_FOUND, "not found")
+        except (OSError, ValueError) as e:  # an unreadable data file, a bad query value
+            return self._error(HTTPStatus.BAD_REQUEST, f"{type(e).__name__}: {e}")
 
     def _get_api(self, path: str, q: dict) -> Any:
         app = self.app
@@ -160,6 +169,14 @@ class Handler(BaseHTTPRequestHandler):
             return app.ws.listdir(q.get("path", ""))
         if path == "/api/job":
             return app.job.snapshot(int(q["tail"]) if q.get("tail", "").isdigit() else None)
+        if path == "/api/catalog":
+            return app.catalog()
+        if path == "/api/datafiles":
+            return app.ws.data_files()
+        if path == "/api/dataset":
+            return inspect_data(app.ws.resolve(q.get("path", ""), kind="file"))
+        if path == "/api/layout":
+            return app.ws.layout(q.get("path", ""))
         raise LookupError(path)
 
     def _static(self, name: str) -> None:
@@ -223,6 +240,26 @@ class Handler(BaseHTTPRequestHandler):
                 rel = str(body.get("path", ""))
                 rel = app.ws.save_config(rel, text, overwrite=bool(body.get("overwrite")))
                 return self._json({"path": rel, **app.validate(text, rel)})
+            if path == "/api/parse":
+                try:
+                    raw = parse_yaml(str(body.get("yaml", "")))
+                except ConfigError as e:
+                    return self._json({"ok": False, "error": str(e)})
+                if not isinstance(raw, dict):
+                    return self._json({"ok": False, "error": "the config must be a mapping"})
+                return self._json({"ok": True, "config": raw})
+            if path == "/api/dump":
+                raw = body.get("config")
+                if not isinstance(raw, dict):
+                    return self._error(HTTPStatus.BAD_REQUEST, "config must be a JSON object")
+                text = dump_yaml(raw)
+                return self._json({"yaml": text, **app.validate(text, body.get("path") or None)})
+            if path == "/api/layout":
+                positions = body.get("positions")
+                if not isinstance(positions, dict):
+                    return self._error(HTTPStatus.BAD_REQUEST, "positions must be a JSON object")
+                app.ws.save_layout(str(body.get("path", "")), positions)
+                return self._json({"ok": True})
             if path == "/api/job":
                 argv, info = build_command(app.ws, body)
                 app.job.start(argv, info)

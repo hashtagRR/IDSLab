@@ -191,6 +191,38 @@ class Workspace:
             raise PathError(f"{rel}: no summary.json")
         return {"path": self.rel(d), "summary": summary, "done": _read_json(os.path.join(d, "DONE"))}
 
+    # ---------- data files ----------
+
+    def data_files(self) -> list[str]:
+        """Parquet and CSV files in the workspace, outside run outputs."""
+        out = []
+        for d, dirs, files in self._walk():
+            if _is_mode_dir(d, dirs):
+                dirs[:] = []
+                continue
+            out += [self.rel(os.path.join(d, f)) for f in files if f.lower().endswith(DATA_SUFFIXES)]
+            if len(out) >= MAX_ITEMS:
+                break
+        return out[:MAX_ITEMS]
+
+    def layout(self, config_rel: str) -> dict:
+        path = self.resolve(config_rel) + ".layout.json"
+        data = _read_json(path) if os.path.isfile(path) else None
+        return data if isinstance(data, dict) else {}
+
+    def save_layout(self, config_rel: str, positions: dict) -> None:
+        if not config_rel.endswith((".yaml", ".yml")):
+            raise PathError(f"{config_rel}: layouts belong to .yaml or .yml configs")
+        clean = {
+            str(k): [float(v[0]), float(v[1])]
+            for k, v in positions.items()
+            if isinstance(v, (list, tuple)) and len(v) == 2 and all(isinstance(x, (int, float)) for x in v)
+        }
+        path = self.resolve(config_rel) + ".layout.json"
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump({"positions": clean}, f, indent=2)
+
     # ---------- files ----------
 
     def listdir(self, rel: str) -> dict:
@@ -282,6 +314,88 @@ def config_info(path: str) -> dict | None:
     }
 
 
+SAMPLE_ROWS = 5000
+DATA_SUFFIXES = (".parquet", ".pq", ".csv", ".csv.gz", ".csv.zip", ".csv.bz2", ".csv.xz")
+LABEL_NAMES = ("label", "is_attack", "attack", "malicious", "y", "target", "class")
+TYPE_NAMES = ("attack_cat", "attack_type", "type", "category", "label_type", "traffic_type")
+NORMAL_VALUES = ("normal", "benign", "background", "legitimate")
+
+
+def read_sample(path: str, rows: int = SAMPLE_ROWS):
+    """The first rows of a data file and its total row count (Parquet from metadata, CSV unknown)."""
+    import pandas as pd  # noqa: PLC0415  (only the builder needs it)
+
+    low = path.lower()
+    if low.endswith((".parquet", ".pq")):
+        import pyarrow.parquet as pq  # noqa: PLC0415
+
+        f = pq.ParquetFile(path)
+        batch = next(f.iter_batches(batch_size=rows), None)
+        frame = batch.to_pandas() if batch is not None else f.schema_arrow.empty_table().to_pandas()
+        return frame, f.metadata.num_rows
+    return pd.read_csv(path, nrows=rows, low_memory=False), None
+
+
+def inspect_data(path: str) -> dict:
+    """Columns of a data file with suggestions for the dataset block: label, type, normal value,
+    categorical columns. Reads only a sample."""
+    import pandas as pd  # noqa: PLC0415
+
+    frame, total = read_sample(path)
+    cols = []
+    for name in frame.columns:
+        col = frame[name]
+        numeric = pd.api.types.is_numeric_dtype(col) and not pd.api.types.is_bool_dtype(col)
+        values = col.dropna().unique()
+        cols.append(
+            {
+                "name": str(name),
+                "dtype": str(col.dtype),
+                "numeric": bool(numeric),
+                "distinct": len(values),
+                "missing": int(col.isna().sum()),
+                "examples": [str(v) for v in values[:6]],
+            }
+        )
+
+    def binary(c: dict) -> bool:
+        return c["distinct"] <= 2 and set(c["examples"]) <= {"0", "1", "0.0", "1.0", "True", "False"}
+
+    lower = {c["name"].lower(): c for c in cols}
+    label = next((lower[n]["name"] for n in LABEL_NAMES if n in lower and binary(lower[n])), None)
+    label = label or next((c["name"] for c in cols if binary(c) and c["name"].lower() in LABEL_NAMES), None)
+    typ = next(
+        (
+            lower[n]["name"]
+            for n in TYPE_NAMES
+            if n in lower and not lower[n]["numeric"] and lower[n]["distinct"] > 1
+        ),
+        None,
+    )
+    if typ is None:  # a text column with a normal-looking value and a handful of classes
+        typ = next(
+            (
+                c["name"]
+                for c in cols
+                if not c["numeric"]
+                and 2 < c["distinct"] <= 60
+                and any(str(v).lower() in NORMAL_VALUES for v in frame[c["name"]].dropna().unique())
+            ),
+            None,
+        )
+    normal = None
+    if typ is not None:
+        vals = [str(v) for v in frame[typ].dropna().unique()]
+        normal = next((v for v in vals if v.lower() in NORMAL_VALUES), None)
+    categorical = [c["name"] for c in cols if not c["numeric"] and c["name"] not in (label, typ)]
+    return {
+        "rows_in_sample": len(frame),
+        "rows": total,
+        "columns": cols,
+        "suggest": {"label": label, "type": typ, "normal_type": normal, "categorical": categorical},
+    }
+
+
 def describe(cfg: Config) -> dict:
     """What ``idslab validate`` prints, as data, plus the routes for the cascade preview."""
     stages = []
@@ -326,4 +440,4 @@ def describe(cfg: Config) -> dict:
     }
 
 
-__all__ = ["ConfigError", "PathError", "Workspace", "config_info", "describe"]
+__all__ = ["ConfigError", "PathError", "Workspace", "config_info", "describe", "inspect_data"]

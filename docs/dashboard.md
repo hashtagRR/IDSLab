@@ -22,6 +22,7 @@ choice and the last output folder per command are kept in the browser).
 |-----------------|------------------------------------------------------------------------------|
 | Overview        | counts of configs, experiments and finished units; latest runs; the current job |
 | Configs         | every YAML file in the workspace that has `entry` and `stages`                |
+| Builder         | draw and edit a design as a graph; see below                                 |
 | Config editor   | YAML with line numbers, validation as you type (the loader the CLI uses), a cascade preview drawn from the parsed routes, warnings for missing data files, and the Run, Report and Export splits panels |
 | New config      | start from a blank config or one of the reference designs                    |
 | Runs            | every run output found in the workspace, with the cascade and first-stage TEST objective |
@@ -35,6 +36,32 @@ choice and the last output folder per command are kept in the browser).
 
 Every command form shows the equivalent CLI line, for example
 `idslab run r1_router_gate.yaml --out runs --seeds 0 1 --jobs 2`.
+
+## Builder
+
+![The visual builder: a four-stage design on the canvas, the gate selected in the panel](img/dashboard-builder.png)
+
+The Builder page draws a design as a graph and edits it directly. Open it from the sidebar for a new
+design, or with **Build** on any config.
+
+- **Add a stage** by dragging a classifier, detector or type stage from the palette onto the canvas
+  (or clicking it). The first stage becomes the entry.
+- **Route an output** by dragging its port (the dots on a stage's right edge) onto another stage or
+  onto ATTACK or BENIGN. A port with no route is drawn hollow in red.
+- **Use a score as a feature** by dragging the orange diamond under a stage onto a later stage; click
+  the dashed edge to remove it.
+- **Edit a stage** in the panel on the right: name, kind, entry, routes, decision and `off`, candidate
+  models with parameter forms and search spaces, external score files, pipeline steps (drag to
+  reorder), training rows, calibration and selection settings.
+- **Dataset, Protocol, Controls** open their own panels. The dataset panel lists the data files in the
+  workspace, reads a sample of the chosen file, and suggests the label, type, normal value and the
+  categorical columns for `Encode`; **Apply suggestions** fills them in.
+
+Every change is written as YAML by the server and validated with the CLI's loader; the YAML tab shows
+the result, and an error that names a stage outlines that stage. **Save** writes the config and the
+node positions (to `<config>.layout.json`, never into the config). Comments in a hand-written config
+are not kept when the builder saves it; use the YAML editor for those files. The Run tab starts
+`run`, `report` and `export-splits` as in the editor.
 
 ## Jobs
 
