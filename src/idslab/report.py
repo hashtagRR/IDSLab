@@ -116,14 +116,29 @@ def _unseen(summaries: list[dict]) -> dict | None:
     return out
 
 
+def _joint(summaries: list[dict]) -> dict | None:
+    blocks = [s["controls"].get("joint_check") for s in summaries]
+    if not any(blocks):
+        return None
+    return {
+        "runs": sum(1 for b in blocks if b),
+        "differs": sum(1 for b in blocks if b and b.get("differs_from_greedy")),
+        "skipped": sum(1 for b in blocks if b and "skipped" in b),
+    }
+
+
 def aggregate(summaries: list[dict]) -> dict:
     goal = summaries[0]["controls"]["objective"]
+    names = list(SYSTEMS) + [
+        k for k in summaries[0]["controls"]["systems_test"] if k not in SYSTEMS and k != "type_recorded"
+    ]
+    names = [k for k in names if all(k in s["controls"]["systems_test"] for s in summaries)]
     systems = {
         name: {m: _ms([s["controls"]["systems_test"][name][m] for s in summaries]) for m in SHOW}
-        for name in SYSTEMS
+        for name in names
     }
     diffs = {}
-    for name in SYSTEMS[1:]:
+    for name in names[1:]:
         per = [s["controls"]["bootstrap_cascade_minus"][name][goal] for s in summaries]
         above = sum(1 for p in per if p["ci95"] is not None and p["ci95"][0] > 0)
         below = sum(1 for p in per if p["ci95"] is not None and p["ci95"][1] < 0)
@@ -159,6 +174,7 @@ def aggregate(summaries: list[dict]) -> dict:
         "frozen_per_seed": {unit(s): s["frozen_configuration"] for s in summaries},
         "prevalence_per_seed": {unit(s): s["controls"]["prevalence"] for s in summaries},
         "unseen": _unseen(summaries),
+        "joint_check": _joint(summaries),
         "fallbacks": {
             unit(s): [f"{t['stage']}: {f}" for t in s["selection_trace"] for f in t["fallbacks"]]
             + s["split_log"]
@@ -193,8 +209,24 @@ def to_markdown(a: dict) -> str:
         "|---|" + "---|" * len(SHOW),
     ]
     lines.extend(
-        f"| {name} | " + " | ".join(_fmt(a["systems_test"][name][m]) for m in SHOW) + " |" for name in SYSTEMS
+        f"| {name} | " + " | ".join(_fmt(a["systems_test"][name][m]) for m in SHOW) + " |"
+        for name in a["systems_test"]
     )
+    jc = a.get("joint_check")
+    if jc:
+        lines += [
+            "",
+            "## Joint search check",
+            "",
+            (
+                "Every combination of the decision values chosen on VAL, each stage keeping the candidate "
+                "greedy selection gave it. A better VAL combination means greedy selection missed it; "
+                "`joint_check` above is that combination on TEST."
+            ),
+            "",
+            f"- runs where a strictly better VAL combination exists: {jc['differs']}/{jc['runs']}",
+            f"- runs skipped because the combinations exceed joint_max: {jc['skipped']}",
+        ]
     lines += [
         "",
         f"## Cascade minus each control ({goal})",

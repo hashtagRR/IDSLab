@@ -98,10 +98,27 @@ def test_routes_must_cover_outputs():
     assert "routes must cover exactly" in errors(raw)
 
 
-def test_later_phase_features_are_named():
+def test_search_mode_and_joint_limit():
     raw = base()
-    raw["protocol"] = {"search": "joint"}
-    assert "phase 4" in errors(raw)
+    raw["protocol"] = {"search": "joint", "joint_max": 200}
+    cfg = from_dict(raw)
+    assert cfg.protocol.search == "joint"
+    assert cfg.protocol.joint_max == 200
+    raw["protocol"] = {"search": "exhaustive"}
+    assert "greedy or joint" in errors(raw)
+
+
+def test_external_candidates_are_checked():
+    raw = base()
+    raw["stages"]["router"]["candidates"] = [{"external": {"path": "scores/cnn_{seed}_{family}.parquet"}}]
+    cand = from_dict(raw).stages["router"].candidates[0]
+    assert cand.external == "scores/cnn_{seed}_{family}.parquet"
+    assert cand.label == "external#0"
+    raw["stages"]["router"]["candidates"] = [{"external": "scores/{fold}.parquet"}]
+    assert "placeholders ['fold']" in errors(raw)
+    raw = four_layer()
+    raw["stages"]["gate"]["candidates"] = [{"external": "scores/lof.parquet"}]
+    assert "a score file cannot do" in errors(raw)
 
 
 @pytest.mark.parametrize(

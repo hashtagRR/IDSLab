@@ -9,12 +9,13 @@ All controls use the same fitted first-stage model as the cascade.
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 from dataclasses import replace
 
 import numpy as np
 
 from idslab.config import Config
-from idslab.graph import Routing, recorded_types, route, with_off
+from idslab.graph import Routing, StageState, recorded_types, route, with_off
 from idslab.metrics import (
     binary_metrics,
     em_prior,
@@ -59,6 +60,7 @@ def evaluate(
     seed: int,
     types_test: np.ndarray | None = None,
     unseen: np.ndarray | None = None,
+    extra_states: Mapping[str, Mapping[str, StageState]] | None = None,
 ) -> tuple[dict, dict[str, np.ndarray], Routing]:
     """TEST evaluation of the frozen cascade and every control.
 
@@ -86,6 +88,8 @@ def evaluate(
     target = binary_metrics(y_val, cascade_val)["fpr"]
     t_budget, achieved = budget_matched_threshold(p1_val, y_val, target)
     preds["budget_matched_first_stage"] = (p1_test >= t_budget).astype(np.int8)
+    for name, st_map in (extra_states or {}).items():
+        preds[name] = run(dict(st_map), test_scores, n_test).verdict
 
     systems = {name: binary_metrics(y_test, p) for name, p in preds.items()}
     frontier = frontier_gap(y_test, p1_test, cascade)

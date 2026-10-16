@@ -16,7 +16,7 @@ from idslab.config import ConfigError, load
 from idslab.data import DataError
 from idslab.fitting import FitError
 from idslab.report import write_report
-from idslab.runner import data_fingerprints, run
+from idslab.runner import data_fingerprints, export_splits, run
 from idslab.synthetic import write_example
 
 EXAMPLES = ("r1_router_gate.yaml", "r2_anomaly_first.yaml", "r1_four_layer.yaml")
@@ -63,6 +63,15 @@ def _report(args: argparse.Namespace) -> int:
     cfg = load(args.config)
     md, js = write_report(args.out, cfg, args.seeds or ())
     print(f"report: {md}\nreport data: {js}")
+    return 0
+
+
+def _export(args: argparse.Namespace) -> int:
+    cfg = load(args.config)
+    paths = export_splits(cfg, args.out, args.seeds)
+    print(
+        f"wrote {len(paths)} split files (each with a .json sidecar) under {os.path.join(args.out, cfg.name)}"
+    )
     return 0
 
 
@@ -116,6 +125,12 @@ def build_parser() -> argparse.ArgumentParser:
     rep.add_argument("--out", default="runs")
     rep.add_argument("--seeds", type=int, nargs="+", help="also include these seeds")
     rep.set_defaults(func=_report)
+
+    x = sub.add_parser("export-splits", help="write row ids, folds and fingerprints for external score jobs")
+    x.add_argument("config")
+    x.add_argument("--out", default="splits", help="output root (default: splits)")
+    x.add_argument("--seeds", type=int, nargs="+", help="only these seeds")
+    x.set_defaults(func=_export)
 
     e = sub.add_parser("example", help="write the synthetic dataset and the two reference configs")
     e.add_argument("directory")

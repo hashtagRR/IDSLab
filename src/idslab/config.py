@@ -17,6 +17,7 @@ import importlib
 import json
 import os
 import re
+import string
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -34,10 +35,7 @@ DEFAULT_MIN_POOL = 20
 
 MODES = ("standard", "heldout_family", "natural_novelty")
 
-LATER = {  # feature -> phase that adds it (DESIGN.md section 10)
-    "external scores": 4,
-    "search: joint": 4,
-}
+PLACEHOLDERS = {"seed", "family"}  # allowed in an external score path
 
 
 class ConfigError(ValueError):
@@ -51,6 +49,7 @@ class Candidate:
     search: dict | None
     score: dict | None
     label: str
+    external: str | None = None  # path template of a score file made elsewhere (ExternalScore)
 
 
 @dataclass(frozen=True)
@@ -114,6 +113,8 @@ class Protocol:
     n_jobs: int
     subsample: dict
     oof_folds: int = 3
+    search: str = "greedy"  # joint adds a check over every combination of decisions
+    joint_max: int = 5000  # largest number of combinations the joint check evaluates
     family_level: str = "mapped"  # held-out families defined after (mapped) or before (raw) type_map
     families: tuple[str, ...] | None = None  # held-out families to run (None: every attack family)
     novel_types: tuple[str, ...] = ()  # natural novelty: raw types found only in TEST
@@ -283,8 +284,34 @@ def _is_int(v: Any) -> bool:
     return isinstance(v, int) and not isinstance(v, bool)
 
 
-def _later(what: str, errs: list[str], where: str) -> None:
-    errs.append(f"{where}: {what} is planned for phase {LATER[what]} and is not available in this version")
+def _external(
+    c: dict, i: int, cw: str, *, kind: str, fit_on: str, calibrate: str, errs: list[str]
+) -> Candidate:
+    """A candidate whose scores come from a file made elsewhere (DESIGN.md section 4.4)."""
+    _keys(c, {"external", "label"}, cw, errs)
+    ext = c["external"]
+    path = ext.get("path") if isinstance(ext, dict) else ext
+    if isinstance(ext, dict):
+        _keys(ext, {"path"}, f"{cw} external", errs, required={"path"})
+    if not isinstance(path, str) or not path:
+        errs.append(f"{cw}: external needs a score file path (it may use {{seed}} and {{family}})")
+        path = ""
+    else:
+        try:
+            names = {f for _, f, _, _ in string.Formatter().parse(path) if f is not None}
+        except ValueError as e:
+            names = set()
+            errs.append(f"{cw}: external path {path!r}: {e}")
+        if names - PLACEHOLDERS:
+            errs.append(
+                f"{cw}: external path placeholders {sorted(names - PLACEHOLDERS)} not in {{seed}}, {{family}}"
+            )
+    if kind == "detector" and fit_on == "pool":
+        errs.append(f"{cw}: a pool detector refits on each batch, which a score file cannot do")
+    if kind == "multiclass" and calibrate != "none":
+        errs.append(f"{cw}: external type scores cannot be calibrated here; set calibrate: none")
+    label = str(c.get("label") or f"external#{i}")
+    return Candidate(cls="external", params={}, search=None, score=None, label=label, external=path)
 
 
 def _keys(
@@ -358,12 +385,19 @@ def _protocol(d: Any, errs: list[str]) -> Protocol:
         "families",
         "novel_types",
         "oof_folds",
+        "joint_max",
     }
     _keys(d, allowed, "protocol", errs)
     if not isinstance(d, dict):
         d = {}
-    if d.get("search") not in (None, "greedy"):
-        _later("search: joint", errs, "protocol")
+    search_mode = d.get("search", "greedy")
+    if search_mode not in ("greedy", "joint"):
+        errs.append("protocol.search: greedy or joint")
+        search_mode = "greedy"
+    joint_max = d.get("joint_max", 5000)
+    if not _is_int(joint_max) or joint_max < 1:
+        errs.append("protocol.joint_max: a positive integer")
+        joint_max = 5000
     mode = d.get("mode", "standard")
     if mode not in MODES:
         errs.append(f"protocol.mode: {mode} not in {MODES}")
@@ -431,6 +465,8 @@ def _protocol(d: Any, errs: list[str]) -> Protocol:
         n_jobs=n_jobs,
         subsample=dict(sub),
         oof_folds=int(oof_folds),
+        search=str(search_mode),
+        joint_max=int(joint_max),
         family_level=str(family_level),
         families=None if families is None else tuple(families),
         novel_types=tuple(novel),
@@ -487,6 +523,8 @@ def _neighbours(cands: list[Candidate]) -> int | None:
     """Largest neighbour count among the candidates (explicit or the estimator default)."""
     best = None
     for c in cands:
+        if c.external is not None:
+            continue
         try:
             obj = import_class(c.cls)(**c.params)
             k = obj.get_params().get("n_neighbors") if hasattr(obj, "get_params") else None
@@ -652,6 +690,9 @@ def _stage(name: str, d: Any, errs: list[str]) -> Stage | None:
     cands = []
     for i, c in enumerate(cands_raw):
         cw = f"{where} candidate {i}"
+        if isinstance(c, dict) and "external" in c:
+            cands.append(_external(c, i, cw, kind=kind, fit_on=fit_on, calibrate=calibrate, errs=errs))
+            continue
         if not _keys(c, {"class", "params", "search", "score"}, cw, errs, required={"class"}):
             continue
         params = c.get("params") or {}
@@ -692,7 +733,7 @@ def _stage(name: str, d: Any, errs: list[str]) -> Stage | None:
         cands.append(
             Candidate(cls=str(c["class"]), params=dict(params), search=search, score=score, label=label)
         )
-    if pipeline and any(_is_custom_class(c.cls) for c in cands):
+    if pipeline and any(c.external is None and _is_custom_class(c.cls) for c in cands):
         errs.append(f"{where}: a custom adapter class does its own preprocessing; remove the pipeline steps")
 
     min_pool = DEFAULT_MIN_POOL

@@ -28,10 +28,11 @@ from idslab.adapters import ClassScores
 from idslab.config import Config, check_against_data
 from idslab.controls import evaluate
 from idslab.data import DataError, Splits, Table, file_fingerprint, load_table, make_splits
+from idslab.external import ExternalContext, resolve, split_frame, write_split_export
 from idslab.features import FeatureStore, column_names
 from idslab.fitting import Fitted, fit_candidate, oof_scores
 from idslab.graph import PoolScorer, describe, paths
-from idslab.selection import Selection, active_scores, select
+from idslab.selection import Selection, active_scores, joint_check, select
 
 POOL_STATEMENT = (
     "Pool detectors are refitted on the whole batch of flows that reaches them, so their results assume "
@@ -130,7 +131,9 @@ class Provider:
     TEST scores are produced only through ``test``, which runs after the freeze.
     """
 
-    def __init__(self, cfg: Config, table: Table, split: Splits, *, seed: int, n_jobs: int):
+    def __init__(
+        self, cfg: Config, table: Table, split: Splits, *, seed: int, n_jobs: int, family: str | None = None
+    ):
         self.cfg, self.table, self.split, self.seed, self.n_jobs = cfg, table, split, seed, n_jobs
         self.store = FeatureStore(table.X)
         self.fitted: dict[str, list[Fitted]] = {}
@@ -138,15 +141,35 @@ class Provider:
         self.feeds = {src for n in cfg.stages for src in cfg.sources(n)}
         self.choice: dict[str, int] = {}
         self.test_filled: set[str] = set()
+        self.family = family
+        self.split_fp = split.fingerprint(table.row_id)
 
     def _fit(self, s: str) -> list[Fitted]:
         if s not in self.fitted:
             st = self.cfg.stages[s]
             self.fitted[s] = [
-                fit_candidate(st, i, self.table, self.split, self.store, seed=self.seed, n_jobs=self.n_jobs)
+                fit_candidate(
+                    st,
+                    i,
+                    self.table,
+                    self.split,
+                    self.store,
+                    seed=self.seed,
+                    n_jobs=self.n_jobs,
+                    ext=self.context(s),
+                )
                 for i in range(len(st.candidates))
             ]
         return self.fitted[s]
+
+    def context(self, stage: str) -> ExternalContext:
+        return ExternalContext(
+            base_dir=self.cfg.base_dir,
+            seed=self.seed,
+            family=self.family,
+            split_fingerprint=self.split_fp,
+            feeds_others=stage in self.feeds,
+        )
 
     def _pool(self, f: Fitted, rows: np.ndarray) -> PoolScorer:
         cache: dict[bytes, np.ndarray] = {}
@@ -214,6 +237,47 @@ class Provider:
         return f.score(self.store.frame(st.extra_features, self.split.test))
 
 
+def external_fingerprints(cfg: Config, table: Table, split: Splits, seed: int, family: str | None) -> dict:
+    """Hash of every external score file of this unit, so a changed file reruns the unit."""
+    ctx = ExternalContext(cfg.base_dir, seed, family, split.fingerprint(table.row_id), feeds_others=False)
+    out = {}
+    for st in cfg.stages.values():
+        for c in st.candidates:
+            if c.external is not None:
+                path = resolve(c.external, ctx)
+                out[path] = file_fingerprint(path) if os.path.isfile(path) else "missing"
+    return out
+
+
+def export_splits(cfg: Config, out_dir: str, seeds: list[int] | None = None) -> list[str]:
+    """Write the split export of every run unit (DESIGN.md section 4.4); returns the file paths."""
+    table = load_table(cfg)
+    use = list(dict.fromkeys(seeds if seeds is not None else cfg.protocol.seeds))
+    fams: list[str | None] = list(families(cfg, table)) if cfg.protocol.mode == "heldout_family" else [None]
+    paths = []
+    for seed in use:
+        for fam in fams:
+            exclude = family_mask(cfg, table, fam) if fam is not None else None
+            split = make_splits(table, cfg.protocol, cfg.dataset.test_fraction, seed, exclude=exclude)
+            name = f"splits_seed{seed}" + (
+                "" if fam is None else "_fam_" + re.sub(r"[^A-Za-z0-9._-]", "_", fam)
+            )
+            path = os.path.join(out_dir, cfg.name, name + ".parquet")
+            meta = {
+                "config_name": cfg.name,
+                "config_hash": cfg.fingerprint(),
+                "idslab_version": __version__,
+                "mode": cfg.protocol.mode,
+                "seed": seed,
+                "family": fam,
+                "split_fingerprint": split.fingerprint(table.row_id),
+                "oof_folds": cfg.protocol.oof_folds,
+            }
+            write_split_export(path, split_frame(table, split, folds=cfg.protocol.oof_folds, seed=seed), meta)
+            paths.append(path)
+    return paths
+
+
 def frozen_config(cfg: Config, sel: Selection) -> dict:
     return {s: describe(cfg.stages[s], sel.state[s]) for s in sel.order}
 
@@ -245,6 +309,7 @@ def run_seed(
         "split": split.fingerprint(table.row_id),
         "package_version": __version__,
         "family": family,
+        "external": external_fingerprints(cfg, table, split, seed, family),
     }
     d = unit_dir(out_root, cfg, seed, family)
     done = os.path.join(d, "DONE")
@@ -265,19 +330,25 @@ def run_seed(
         os.remove(done)
 
     order = cfg.order()
-    provider = Provider(cfg, table, split, seed=seed, n_jobs=n_jobs)
+    provider = Provider(cfg, table, split, seed=seed, n_jobs=n_jobs, family=family)
     y_val = table.y[split.val]
     types_val = None if table.types is None else table.types[split.val].astype(str)
 
     sel = select(cfg, provider, y_val, types_val)
     frozen = frozen_config(cfg, sel)
     fitted, val_scores = provider.fitted, provider.val_scores
-    # TEST features are scored only now, and only for the chosen candidates
-    test_scores = {
-        s: {st.candidate: provider.test(s, st.candidate)}
-        for s, st in sel.state.items()
-        if not st.off and st.candidate is not None
-    }
+    joint = (
+        joint_check(cfg, val_scores, sel, y_val, max_combos=cfg.protocol.joint_max)
+        if cfg.protocol.search == "joint"
+        else None
+    )
+    extra = {"joint_check": joint["state"]} if joint and "state" in joint else {}
+    # TEST features are scored only now, and only for the candidates that are on
+    test_scores: dict[str, dict[int, Any]] = {}
+    for st_map in (sel.state, *extra.values()):
+        for s, st in st_map.items():
+            if not st.off and st.candidate is not None and st.candidate not in test_scores.get(s, {}):
+                test_scores.setdefault(s, {})[st.candidate] = provider.test(s, st.candidate)
 
     y_test = table.y[split.test]  # first use of TEST labels, after the freeze
     types_test = None if table.types is None else table.types[split.test].astype(str)
@@ -298,7 +369,10 @@ def run_seed(
         seed=seed,
         types_test=types_test,
         unseen=unseen_mask(cfg, table, split, family),  # built after the freeze, from TEST types
+        extra_states=extra,
     )
+    if joint is not None:
+        controls["joint_check"] = {k: v for k, v in joint.items() if k != "state"}
 
     active = active_scores(test_scores, sel.state)
     flow = pd.DataFrame({"row_id": table.row_id[split.test], "y": y_test})

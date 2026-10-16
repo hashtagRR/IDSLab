@@ -15,6 +15,7 @@ stage's scores is fitted only after that source has been chosen. VAL only.
 
 from __future__ import annotations
 
+import itertools
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -217,3 +218,67 @@ def select(
         entry["val_" + (f"type_{st.type_objective}" if annotate else goal)] = best_val
         trace.append(entry)
     return Selection(order=order, state=state, trace=trace)
+
+
+def joint_check(
+    cfg: Config, scores: Scores, greedy: Selection, y_val: np.ndarray, *, max_combos: int
+) -> dict:
+    """Every combination of decision values of the decide stages chosen on VAL, as a check on greedy.
+
+    Each stage keeps the candidate greedy selection gave it; annotate stages and fixed
+    decisions keep their greedy state. Greedy's configuration wins ties. Reports whether
+    a strictly better VAL combination exists (DESIGN.md section 5).
+    """
+    order, goal, n = greedy.order, cfg.protocol.objective, len(y_val)
+    tunable = [
+        s
+        for s in order
+        if cfg.stages[s].decision.tunable
+        and not (cfg.stages[s].kind == "multiclass" and cfg.stages[s].role == "annotate")
+    ]
+    choices: dict[str, list[float | None]] = {}
+    for s in tunable:
+        allow_off = s != cfg.controls.first_stage
+        choices[s] = ([None] if allow_off else []) + list(cfg.stages[s].decision.values)
+    total = int(np.prod([len(v) for v in choices.values()])) if choices else 1
+    base = objective(
+        y_val, route(order, cfg.stages, active_scores(scores, greedy.state), greedy.state, n).verdict, goal
+    )
+    if total > max_combos:
+        return {"evaluated": 0, "combinations": total, "skipped": f"{total} combinations exceed joint_max"}
+    best_val, best_state = base, dict(greedy.state)
+    for combo in itertools.product(*choices.values()):
+        state = dict(greedy.state)
+        ok = True
+        for s, value in zip(tunable, combo, strict=True):
+            kept = greedy.state[s].candidate
+            cand = kept if kept is not None else 0
+            if value is None:
+                state[s] = off_state(cand)
+                continue
+            mode = cfg.stages[s].decision.mode
+            reach = (
+                route(order, cfg.stages, active_scores(scores, state), state, n).reach[s]
+                if mode == "budget"
+                else np.ones(n, bool)
+            )
+            trial, _ = _state(mode, cand, value, score=scores[s][cand], reach=reach, y=y_val, note=[])
+            if trial is None:
+                ok = False
+                break
+            state[s] = trial
+        if not ok:
+            continue
+        val = objective(y_val, route(order, cfg.stages, active_scores(scores, state), state, n).verdict, goal)
+        if val > best_val:
+            best_val, best_state = val, state
+    differs = any(best_state[s] != greedy.state[s] for s in tunable)
+    return {
+        "evaluated": total,
+        "combinations": total,
+        f"val_{goal}_greedy": base,
+        f"val_{goal}_joint": best_val,
+        "differs_from_greedy": differs,
+        "state": best_state,
+        "configuration": {s: describe(cfg.stages[s], best_state[s]) for s in order},
+    }

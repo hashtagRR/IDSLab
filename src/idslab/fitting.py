@@ -35,6 +35,7 @@ from idslab.adapters import (
 )
 from idslab.config import Candidate, Stage
 from idslab.data import Splits, Table
+from idslab.external import ExternalContext, ExternalModel, load_external
 from idslab.features import FeatureStore, fold_ids
 
 
@@ -60,6 +61,7 @@ class Fitted:
     best_params: dict
     cv_score: float | None
     seconds: float
+    producer: dict | None = None  # provenance block of an external score file
 
     def score(self, X: Any) -> np.ndarray | ClassScores:
         """The stage's score: P(attack), class probabilities or an anomaly score."""
@@ -85,8 +87,13 @@ class Fitted:
             return None
         return tuple(str(c) for c in np.asarray(self.raw.classes_).tolist())
 
+    @property
+    def external(self) -> bool:
+        return isinstance(self.raw, ExternalModel)
+
     def info(self) -> dict:
         return {
+            "external_producer": self.producer,
             "label": self.label,
             "class": self.cls,
             "n_train": self.n_train,
@@ -199,11 +206,96 @@ def build(stage: Stage, cand: Candidate, *, seed: int, n_jobs: int, params: dict
     return pipe
 
 
+class CalibratedExternal:
+    """P(attack) of an external classifier mapped by a calibrator fitted on its CAL scores."""
+
+    idslab_contract = "AttackScore"
+
+    def __init__(self, base: ExternalModel, method: str, scores: np.ndarray, y: np.ndarray):
+        self.base, self.method = base, method
+        if method == "isotonic":
+            from sklearn.isotonic import IsotonicRegression  # noqa: PLC0415
+
+            self.map: Any = IsotonicRegression(out_of_bounds="clip", y_min=0.0, y_max=1.0).fit(scores, y)
+        else:
+            from sklearn.linear_model import LogisticRegression  # noqa: PLC0415
+
+            self.map = LogisticRegression(C=1e6).fit(_logit(scores)[:, None], y)
+
+    def attack_score(self, X: Any) -> np.ndarray:
+        s = self.base.attack_score(X)
+        if self.method == "isotonic":
+            return np.asarray(self.map.predict(s), dtype=np.float64)
+        return self.map.predict_proba(_logit(s)[:, None])[:, 1]
+
+
+def _logit(p: np.ndarray) -> np.ndarray:
+    q = np.clip(p, 1e-6, 1 - 1e-6)
+    return np.log(q / (1 - q))
+
+
+def _fit_external(
+    stage: Stage,
+    index: int,
+    table: Table,
+    split: Splits,
+    store: FeatureStore,
+    *,
+    ext: ExternalContext,
+    t0: float,
+) -> Fitted:
+    cand = stage.candidates[index]
+    raw, producer = load_external(stage, cand, table, split, ext)
+    model: Any = raw
+    n_cal, prior = 0, None
+    rows = split.fit_base if producer["trained_on"] == "fit_base" else split.fit
+    if stage.kind == "classifier":
+        prior = float(table.y[rows].mean())
+        if stage.calibrate != "none":
+            crows = calibration_rows(stage, table, split, store)
+            yc = table.y[crows]
+            if len(np.unique(yc)) < 2:
+                raise FitError(f"stage {stage.name}: CAL rows hold one class only, calibration is impossible")
+            model = CalibratedExternal(raw, stage.calibrate, raw.attack_score(table.X.iloc[crows]), yc)
+            n_cal, prior = len(crows), float(yc.mean())
+    return Fitted(
+        stage=stage.name,
+        index=index,
+        label=cand.label,
+        kind=stage.kind,
+        cls="external",
+        model=model,
+        raw=raw,
+        score_override=None,
+        transductive=False,
+        n_train=len(rows),
+        n_cal=n_cal,
+        attack_share=float(table.y[rows].mean()) if stage.kind == "classifier" else None,
+        prior_share=prior,
+        best_params={},
+        cv_score=None,
+        seconds=time.perf_counter() - t0,
+        producer=producer,
+    )
+
+
 def fit_candidate(
-    stage: Stage, index: int, table: Table, split: Splits, store: FeatureStore, *, seed: int, n_jobs: int
+    stage: Stage,
+    index: int,
+    table: Table,
+    split: Splits,
+    store: FeatureStore,
+    *,
+    seed: int,
+    n_jobs: int,
+    ext: ExternalContext | None = None,
 ) -> Fitted:
     cand = stage.candidates[index]
     t0 = time.perf_counter()
+    if cand.external is not None:
+        if ext is None:
+            raise FitError(f"stage {stage.name}: {cand.label} needs the run unit's context to find its file")
+        return _fit_external(stage, index, table, split, store, ext=ext, t0=t0)
     rows = training_rows(stage, table, split, store)
     if len(rows) == 0:
         raise FitError(f"stage {stage.name}: no training rows")
@@ -310,6 +402,8 @@ def oof_scores(
     held-out fold, so no FIT row gets a score from a model that saw it.
     """
     fit = split.fit
+    if isinstance(fitted.raw, ExternalModel):  # made elsewhere: its file carries the oof scores
+        return fitted.raw.oof(fit)
     strata = table.types[fit] if table.types is not None else table.y[fit]
     fold = fold_ids(strata, folds, seed)
     own = training_rows(stage, table, split, store)  # the source's own rows, as in DESIGN.md 4.2

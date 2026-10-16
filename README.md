@@ -5,10 +5,11 @@ the model at each stage and the routing between stages in one YAML file. IDSLab 
 chooses every model and threshold on validation data, freezes the design, and reports it on the test
 set next to controls that show whether the extra stages beat the first stage alone.
 
-Status: version 0.0.3. Classifier, type
+Status: version 0.0.4. Classifier, type
 (multiclass) and detector stages; upstream scores as features (out-of-fold); detectors fitted once or
 refitted on each batch; greedy selection on VAL; all binary controls plus type metrics; standard, held-out
-family (zero-day) and natural novelty modes.
+family (zero-day) and natural novelty modes; scores made elsewhere (for example a CNN trained on a
+GPU) with provenance checks; a joint search check on greedy selection.
 
 ## Install
 
@@ -58,6 +59,23 @@ protocol:
 
 The report then adds recall on the unseen attacks for the cascade and its controls, the benign false
 alarm rate, and the frontier gap on the benign and unseen flows.
+
+## Models trained elsewhere
+
+```bash
+idslab export-splits config.yaml --out splits   # row ids, folds and a fingerprint per run unit
+```
+
+Train on exactly the exported rows, then write one Parquet score file per unit with columns `row_id`,
+`split`, `score_kind` (`oof` or `fitted`) and `score` (or `proba__<type>`), plus a `.json` sidecar with
+`seed`, `family`, `split_fingerprint` and `producer`. Point a candidate at it:
+
+```yaml
+candidates: [{external: {path: scores/cnn_{seed}.parquet}}]
+```
+
+A file that does not match the exported splits, scores rows its model was trained on, or misses a
+required row is rejected with a message naming the problem.
 
 ## A config in brief
 
