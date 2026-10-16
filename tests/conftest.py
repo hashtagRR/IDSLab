@@ -96,3 +96,29 @@ def r1():
 @pytest.fixture
 def r2():
     return copy.deepcopy(R2)
+
+
+R4 = copy.deepcopy(R1)  # the full four-layer design: router score feeds the type stage, pool gate
+R4["name"] = "r4"
+R4["stages"]["router"]["routes"] = {"attack": "type", "benign": "gate"}
+R4["stages"]["type"] = {
+    "kind": "multiclass",
+    "extra_features": ["router"],
+    "pipeline": [ENCODE],
+    "candidates": [{"class": "sklearn.ensemble.RandomForestClassifier", "params": {"n_estimators": 20}}],
+    "decision": {"confidence": [0.0, 0.4]},
+    "next": "ATTACK",
+}
+R4["stages"]["gate"] = {
+    "kind": "detector",
+    "fit_on": "pool",
+    "pipeline": [ENCODE, {"class": "sklearn.preprocessing.StandardScaler"}],
+    "candidates": [{"class": "sklearn.neighbors.LocalOutlierFactor", "params": {"n_neighbors": 15}}],
+    "decision": {"top_fraction": [0.02, 0.1], "off": "normal"},
+    "routes": {"anomalous": "ATTACK", "normal": "BENIGN"},
+}
+
+
+@pytest.fixture
+def r4():
+    return copy.deepcopy(R4)

@@ -106,3 +106,55 @@ def test_unreadable_summary_reruns_the_seed(data_dir, r2, tmp_path):
         f.write("{not json")
     [third] = run(cfg, out_root=out)
     assert third["skipped"] is False
+
+
+def test_four_layer_design_runs_with_types_and_pool(data_dir, r4, tmp_path):
+    cfg = from_dict(r4, base_dir=str(data_dir))
+    [res] = run(cfg, out_root=str(tmp_path / "runs"))
+    s = res["summary"]
+    assert set(s["frozen_configuration"]) == {"binary", "router", "type", "gate"}
+    trace = {t["stage"]: t for t in s["selection_trace"]}
+    assert "val_type_macro_f1" in trace["type"]
+    if not s["frozen_configuration"]["type"]["off"]:
+        assert "types_test" in s["controls"]
+        assert 0 <= s["controls"]["types_test"]["cascade"]["macro_f1"] <= 1
+    flow = pd.read_parquet(os.path.join(unit_dir(str(tmp_path / "runs"), cfg, 0), "per_flow.parquet"))
+    assert len(flow) == s["split_sizes"]["test"]
+    if not s["frozen_configuration"]["gate"]["off"]:
+        assert any("Pool detectors" in x for x in s["statements"])
+
+
+def test_test_labels_never_change_any_choice_with_features_and_pool(data_dir, r4, tmp_path):
+    cfg = from_dict(r4, base_dir=str(data_dir))
+    table = load_table(cfg)
+    split = make_splits(table, cfg.protocol, None, seed=0)
+    a = run_seed(cfg, table, 0, data_fps={}, out_root=str(tmp_path / "a"), force=True)["summary"]
+    shuffled = copy.deepcopy(table)
+    perm = np.random.default_rng(3).permutation(split.test)
+    shuffled.y[split.test] = table.y[perm]
+    assert shuffled.types is not None
+    assert table.types is not None
+    shuffled.types[split.test] = table.types[perm]
+    b = run_seed(cfg, shuffled, 0, data_fps={}, out_root=str(tmp_path / "b"), force=True)["summary"]
+    assert json.dumps(a["selection_trace"], sort_keys=True) == json.dumps(
+        b["selection_trace"], sort_keys=True
+    )
+    assert a["frozen_configuration"] == b["frozen_configuration"]
+
+
+def test_decide_type_stage_routes_by_type(data_dir, r1, tmp_path):
+    r1["stages"]["router"]["routes"] = {"attack": "type", "benign": "BENIGN"}
+    r1["stages"]["type"] = {
+        "kind": "multiclass",
+        "role": "decide",
+        "pipeline": r1["stages"]["router"]["pipeline"],
+        "candidates": [{"class": "sklearn.ensemble.RandomForestClassifier", "params": {"n_estimators": 20}}],
+        "decision": {"confidence": 0.0, "off": "default"},
+        "routes": {"Normal": "BENIGN", "default": "ATTACK"},
+    }
+    del r1["stages"]["gate"]
+    cfg = from_dict(r1, base_dir=str(data_dir))
+    [res] = run(cfg, out_root=str(tmp_path / "runs"))
+    s = res["summary"]
+    assert s["frozen_configuration"]["type"]["off"] is False  # fixed decision: never switched off
+    assert "types_test" in s["controls"]

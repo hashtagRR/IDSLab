@@ -61,6 +61,27 @@ def _fmt(d: dict, digits: int = 4) -> str:
     return f"{d['mean']:.{digits}f}" + (f" ± {d['sd']:.{digits}f}" if d["sd"] is not None else "")
 
 
+def _statement_order(text: str) -> tuple[int, str]:
+    return (0 if text.startswith("TEST labels") else 1, text)
+
+
+def _types(summaries: list[dict]) -> dict | None:
+    typed = [s["controls"].get("types_test") for s in summaries]
+    if not any(typed):
+        return None
+    cascade = [t["cascade"] if t else {} for t in typed]
+    names = sorted({c for t in cascade for c in t.get("per_type", {})})
+    return {
+        "seeds_with_types": sum(1 for t in typed if t),
+        "accuracy": _ms([t.get("accuracy") for t in cascade]),
+        "macro_f1": _ms([t.get("macro_f1") for t in cascade]),
+        "per_type_f1": {c: _ms([t.get("per_type", {}).get(c, {}).get("f1") for t in cascade]) for c in names},
+        "per_type_support": {
+            c: _ms([t.get("per_type", {}).get(c, {}).get("support") for t in cascade]) for c in names
+        },
+    }
+
+
 def aggregate(summaries: list[dict]) -> dict:
     goal = summaries[0]["controls"]["objective"]
     systems = {
@@ -107,7 +128,8 @@ def aggregate(summaries: list[dict]) -> dict:
             + s["split_log"]
             for s in summaries
         },
-        "statements": summaries[0]["statements"],
+        "statements": sorted({x for s in summaries for x in s["statements"]}, key=_statement_order),
+        "types": _types(summaries),
     }
 
 
@@ -146,6 +168,26 @@ def to_markdown(a: dict) -> str:
     ]
     for name, d in a["cascade_minus_control"].items():
         lines.append(f"| {name} | {_fmt(d['diff'])} | {d['ci_above_zero']}/{n} | {d['ci_below_zero']}/{n} |")
+    ty = a.get("types")
+    if ty:
+        lines += [
+            "",
+            "## Attack types on TEST",
+            "",
+            (
+                f"Recorded type against the true type on true attacks ({ty['seeds_with_types']}/{n} seeds "
+                "with an active type stage). Untyped and uncertain flows count as wrong."
+            ),
+            "",
+            f"- accuracy: {_fmt(ty['accuracy'])}; macro F1: {_fmt(ty['macro_f1'])}",
+            "",
+            "| type | F1 | support |",
+            "|---|---|---|",
+        ]
+        lines.extend(
+            f"| {c} | {_fmt(ty['per_type_f1'][c])} | {_fmt(ty['per_type_support'][c], 0)} |"
+            for c in ty["per_type_f1"]
+        )
     fg = a["frontier_gap"]
     lines += [
         "",

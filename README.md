@@ -5,8 +5,10 @@ the model at each stage and the routing between stages in one YAML file. IDSLab 
 chooses every model and threshold on validation data, freezes the design, and reports it on the test
 set next to controls that show whether the extra stages beat the first stage alone.
 
-Status: version 0.0.1. Classifier and benign-trained
-detector stages, greedy selection on VAL, all binary controls, standard train/test mode.
+Status: version 0.0.2. Classifier, type
+(multiclass) and detector stages; upstream scores as features (out-of-fold); detectors fitted once or
+refitted on each batch; greedy selection on VAL; all binary controls plus type metrics; standard
+train/test mode.
 
 ## Install
 
@@ -20,7 +22,7 @@ Optional model libraries: `pip install -e ".[xgboost]"`, `".[pyod]"`, `".[imbala
 ## Quick start
 
 ```bash
-idslab example demo                         # synthetic data and two reference configs
+idslab example demo                         # synthetic data and three reference configs
 idslab validate demo/r1_router_gate.yaml    # checks the config without reading data
 idslab run demo/r1_router_gate.yaml --out demo/runs
 ```

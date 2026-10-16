@@ -5,7 +5,8 @@
 Every check that can run without data runs here, so a wrong config fails before
 any file is read: unknown keys, broken routing graph, missing ``off`` routes,
 classes that do not import, parameters the estimator does not have, and
-settings that do not fit together.
+settings that do not fit together. Checks that need the data (multiclass route
+names against the type values) run in ``check_against_data``.
 """
 
 from __future__ import annotations
@@ -27,18 +28,11 @@ OBJECTIVES = ("accuracy", "mcc", "f1", "balanced_accuracy")
 EXTRAS = {"xgboost": "xgboost", "lightgbm": "lightgbm", "pyod": "pyod", "imblearn": "imbalance"}
 DEFAULT_CUTOFFS = [round(0.05 + 0.025 * i, 3) for i in range(37)]
 
+UNCERTAIN, DEFAULT, NEXT = "uncertain", "default", "next"
+TYPE_OBJECTIVES = ("macro_f1", "accuracy", "auc")
+DEFAULT_MIN_POOL = 20
+
 LATER = {  # feature -> phase that adds it (DESIGN.md section 10)
-    "multiclass stages": 2,
-    "extra_features": 2,
-    "hard": 2,
-    "next": 2,
-    "role": 2,
-    "type_objective": 2,
-    "fit_on: pool": 2,
-    "prep_fit_on": 2,
-    "min_pool": 2,
-    "top_fraction": 2,
-    "confidence": 2,
     "mode heldout_family": 3,
     "mode natural_novelty": 3,
     "family_level": 3,
@@ -63,13 +57,14 @@ class Candidate:
 
 @dataclass(frozen=True)
 class Decision:
-    mode: str  # threshold | grid | budget
+    mode: str  # threshold | grid | budget | top_fraction | confidence
     values: tuple[float, ...]
-    off: str
+    off: str  # output every flow takes when the stage is off ("next" for an annotate stage)
+    listed: bool = False  # the config gave a list, so the value is chosen on VAL
 
     @property
     def tunable(self) -> bool:
-        return self.mode == "grid" or (self.mode == "budget" and len(self.values) > 1)
+        return self.mode == "grid" or (self.mode != "threshold" and self.listed and len(self.values) > 1)
 
 
 @dataclass(frozen=True)
@@ -85,6 +80,16 @@ class Stage:
     pipeline: tuple[dict, ...]
     select_by: str
     min_val_rows: int
+    role: str = "decide"  # decide | annotate
+    extra_features: tuple[str, ...] = ()
+    hard: dict | None = None  # {source, band} for train_on: hard
+    type_objective: str = "macro_f1"
+    prep_fit_on: str = "fit"  # rows that fit the preprocessing of a pool detector
+    min_pool: int = DEFAULT_MIN_POOL
+
+    @property
+    def transductive(self) -> bool:
+        return self.kind == "detector" and self.fit_on == "pool"
 
 
 @dataclass(frozen=True)
@@ -110,6 +115,7 @@ class Protocol:
     mode: str
     n_jobs: int
     subsample: dict
+    oof_folds: int = 3
 
 
 @dataclass(frozen=True)
@@ -132,8 +138,24 @@ class Config:
     raw: dict = field(repr=False)
 
     def order(self) -> list[str]:
-        """Topological order of the routing graph from the entry stage; ties keep config order."""
-        return topo_order(self.entry, {n: s.routes for n, s in self.stages.items()}, list(self.stages))
+        """Selection order: topological order of the routing graph joined with the score-dependency
+        graph (a score source comes before every stage that uses it); ties keep config order."""
+        return topo_order(self.entry, self.edges(), list(self.stages))
+
+    def edges(self) -> dict[str, dict]:
+        """Routing edges plus one edge from each score source to the stage using it."""
+        out = {n: dict(s.routes) for n, s in self.stages.items()}
+        for n in self.stages:
+            for i, src in enumerate(self.sources(n)):
+                if src in out:
+                    out[src][f"__feeds_{n}_{i}"] = n
+        return out
+
+    def sources(self, name: str) -> tuple[str, ...]:
+        """Stages whose scores the stage ``name`` uses: extra features and the hard-row source."""
+        st = self.stages[name]
+        hard = (st.hard["source"],) if st.hard else ()
+        return tuple(dict.fromkeys(st.extra_features + hard))
 
     def fingerprint(self) -> str:
         """Hash of everything that can change one seed's result.
@@ -246,6 +268,9 @@ def from_dict(raw: Any, base_dir: str = ".") -> Config:
     _graph(cfg, errs)
     if errs:
         raise ConfigError("\n".join(errs))
+    _dependencies(cfg, errs)
+    if errs:
+        raise ConfigError("\n".join(errs))
     _semantics(cfg, errs)
     if errs:
         raise ConfigError("\n".join(errs))
@@ -330,6 +355,7 @@ def _protocol(d: Any, errs: list[str]) -> Protocol:
         "search",
         "family_level",
         "novel_types",
+        "oof_folds",
     }
     _keys(d, allowed, "protocol", errs)
     if not isinstance(d, dict):
@@ -368,6 +394,10 @@ def _protocol(d: Any, errs: list[str]) -> Protocol:
     ):
         errs.append("protocol.subsample: give {train: N, test: M} with positive integers")
         sub = {}
+    oof_folds = d.get("oof_folds", 3)
+    if not _is_int(oof_folds) or oof_folds < 2:
+        errs.append("protocol.oof_folds: an integer of at least 2")
+        oof_folds = 3
     n_jobs = d.get("n_jobs", 1)
     if not _is_int(n_jobs) or n_jobs == 0:
         errs.append("protocol.n_jobs: a non-zero integer (-1 means all cores)")
@@ -380,6 +410,7 @@ def _protocol(d: Any, errs: list[str]) -> Protocol:
         mode=str(mode),
         n_jobs=n_jobs,
         subsample=dict(sub),
+        oof_folds=int(oof_folds),
     )
 
 
@@ -407,6 +438,42 @@ def _controls(d: Any, entry: str, errs: list[str]) -> Controls:
     )
 
 
+def _routes(d: dict, kind: str, role: str, where: str, errs: list[str]) -> dict:
+    """Routes as {output: target}; an annotate stage has the single output 'next'."""
+    if kind == "multiclass" and role == "annotate":
+        if "routes" in d:
+            errs.append(f"{where}: an annotate stage cannot change the verdict; use 'next' (or role: decide)")
+        if "next" not in d:
+            errs.append(f"{where}: an annotate stage needs 'next' (the stage or terminal every flow goes to)")
+        return {NEXT: str(d.get("next", "ATTACK"))}
+    if "next" in d:
+        errs.append(f"{where}: 'next' is for annotate stages; a {kind} stage with role decide uses routes")
+    routes = d.get("routes")
+    if not isinstance(routes, dict):
+        errs.append(f"{where}: 'routes' must map each output to a stage or terminal")
+        return {}
+    routes = {str(k): str(v) for k, v in routes.items()}
+    if kind in OUTPUTS and set(routes) != set(OUTPUTS[kind]):
+        errs.append(f"{where}: routes must cover exactly {OUTPUTS[kind]} (got {sorted(routes)})")
+    if kind == "multiclass" and DEFAULT not in routes:
+        errs.append(f"{where}: a decide multiclass stage needs a '{DEFAULT}' route for types not listed")
+    return routes
+
+
+def _neighbours(cands: list[Candidate]) -> int | None:
+    """Largest neighbour count among the candidates (explicit or the estimator default)."""
+    best = None
+    for c in cands:
+        try:
+            obj = import_class(c.cls)(**c.params)
+            k = obj.get_params().get("n_neighbors") if hasattr(obj, "get_params") else None
+        except Exception:  # noqa: BLE001  (reported by _check_class)
+            k = None
+        if isinstance(k, int):
+            best = k if best is None else max(best, k)
+    return best
+
+
 def _stage(name: str, d: Any, errs: list[str]) -> Stage | None:
     where = f"stage {name}"
     if name in TERMINALS:
@@ -432,54 +499,110 @@ def _stage(name: str, d: Any, errs: list[str]) -> Stage | None:
     }
     if not _keys(d, allowed, where, errs, required={"kind", "candidates", "decision"}):
         return None
-    for k in ("extra_features", "hard", "next", "role", "type_objective", "prep_fit_on", "min_pool"):
-        if k in d:
-            _later(k, errs, where)
     kind = d.get("kind")
-    if kind == "multiclass":
-        _later("multiclass stages", errs, where)
+    if kind not in ("classifier", "multiclass", "detector"):
+        errs.append(f"{where}: kind {kind!r} not in classifier, multiclass, detector")
         return None
-    if kind not in OUTPUTS:
-        errs.append(f"{where}: kind {kind!r} not in {sorted(OUTPUTS)}")
-        return None
-    routes = d.get("routes")
-    if not isinstance(routes, dict):
-        errs.append(f"{where}: 'routes' must map each output {OUTPUTS[kind]} to a stage or terminal")
-        routes = {}
-    routes = {str(k): str(v) for k, v in routes.items()}
-    if set(routes) != set(OUTPUTS[kind]):
-        errs.append(f"{where}: routes must cover exactly {OUTPUTS[kind]} (got {sorted(routes)})")
+    role = d.get("role", "annotate" if kind == "multiclass" else "decide")
+    if role not in ("decide", "annotate"):
+        errs.append(f"{where}: role {role!r} not in decide, annotate")
+        role = "decide"
+    if role == "annotate" and kind != "multiclass":
+        errs.append(f"{where}: only a multiclass stage can annotate; a {kind} stage decides")
+        role = "decide"
+    routes = _routes(d, kind, role, where, errs)
 
     calibrate = d.get("calibrate", "none")
     fit_on = d.get("fit_on", "fit")
-    if kind == "classifier":
+    if kind in ("classifier", "multiclass"):
         if calibrate not in ("none", "sigmoid", "isotonic"):
             errs.append(f"{where}: calibrate {calibrate!r} not in none, sigmoid, isotonic")
-        if "fit_on" in d:
-            errs.append(f"{where}: fit_on applies to detectors only")
+        errs.extend(
+            f"{where}: {k} applies to detectors only" for k in ("fit_on", "prep_fit_on", "min_pool") if k in d
+        )
     else:
         if "calibrate" in d:
             errs.append(f"{where}: detectors are not calibrated")
-        if fit_on == "pool":
-            _later("fit_on: pool", errs, where)
-        elif fit_on not in ("fit", "benign"):
-            errs.append(f"{where}: fit_on {fit_on!r} not in fit, benign")
+        if fit_on not in ("fit", "benign", "pool"):
+            errs.append(f"{where}: fit_on {fit_on!r} not in fit, benign, pool")
+        if fit_on != "pool":
+            errs.extend(
+                f"{where}: {k} applies to detectors with fit_on: pool only"
+                for k in ("prep_fit_on", "min_pool")
+                if k in d
+            )
+    prep_fit_on = d.get("prep_fit_on", "fit")
+    if prep_fit_on not in ("fit", "benign"):
+        errs.append(f"{where}: prep_fit_on {prep_fit_on!r} not in fit, benign")
 
-    decision = _decision(d.get("decision"), kind, where, errs)
-    train_on = d.get("train_on", "all")
-    if kind == "classifier" and train_on in ("benign", "attack"):
+    decision = _decision(d.get("decision"), kind, role, routes, where=where, errs=errs)
+    if fit_on == "pool" and decision.mode == "budget":
         errs.append(
-            f"{where}: a classifier needs benign and attack rows; train_on {train_on!r} has one class"
+            f"{where}: budget thresholds need a detector fitted once (fit_on fit or benign), not pool"
         )
-    if not (train_on in ("all", "benign", "attack") or (isinstance(train_on, list) and train_on)):
-        if train_on == "hard":
-            _later("hard", errs, where)
-        else:
-            errs.append(f"{where}: train_on must be all, benign, attack or a list of types")
-    if kind == "detector" and "train_on" in d:
-        errs.append(f"{where}: detectors choose their rows with fit_on (fit or benign), not train_on")
 
-    select_by = d.get("select_by", "auc" if kind == "classifier" else "objective")
+    train_on = d.get("train_on", "all")
+    hard = d.get("hard")
+    if kind == "detector":
+        if "train_on" in d or "hard" in d:
+            errs.append(
+                f"{where}: detectors choose their rows with fit_on (fit, benign or pool), not train_on"
+            )
+        train_on, hard = "all", None
+    else:
+        one_class = train_on == "benign" or (kind == "classifier" and train_on == "attack")
+        if one_class and kind == "classifier":
+            errs.append(
+                f"{where}: a classifier needs benign and attack rows; train_on {train_on!r} has one class"
+            )
+        elif one_class:
+            errs.append(f"{where}: a multiclass stage needs several types; train_on 'benign' has one")
+        if train_on == "hard":
+            if hard is None:
+                errs.append(
+                    f"{where}: train_on: hard needs a 'hard' block {{source: <stage>, band: [low, high]}}"
+                )
+            elif not _keys(hard, {"source", "band"}, f"{where} hard", errs, required={"source", "band"}):
+                hard = None
+            else:
+                band = hard.get("band")
+                if not (
+                    isinstance(band, list)
+                    and len(band) == 2
+                    and all(isinstance(x, (int, float)) and not isinstance(x, bool) for x in band)
+                    and band[0] < band[1]
+                ):
+                    errs.append(f"{where} hard.band: two numbers [low, high] with low < high")
+                hard = {
+                    "source": str(hard.get("source")),
+                    "band": [float(x) for x in band]
+                    if isinstance(band, list) and len(band) == 2
+                    else [0.0, 1.0],
+                }
+        elif hard is not None:
+            errs.append(f"{where}: 'hard' needs train_on: hard")
+            hard = None
+        if not (
+            one_class or train_on in ("all", "attack", "hard") or (isinstance(train_on, list) and train_on)
+        ):
+            errs.append(f"{where}: train_on must be all, attack, hard or a list of types")
+
+    extra = d.get("extra_features") or []
+    if not isinstance(extra, list) or not all(isinstance(x, str) for x in extra):
+        errs.append(f"{where}: extra_features must be a list of stage names")
+        extra = []
+    if kind == "detector" and fit_on == "pool" and extra:
+        errs.append(
+            f"{where}: a pool detector refits on raw features each batch; extra_features are not used"
+        )
+
+    type_objective = d.get("type_objective", "macro_f1")
+    if type_objective not in TYPE_OBJECTIVES:
+        errs.append(f"{where}: type_objective {type_objective!r} not in {TYPE_OBJECTIVES}")
+    if "type_objective" in d and kind != "multiclass":
+        errs.append(f"{where}: type_objective applies to multiclass stages only")
+
+    select_by = d.get("select_by", "objective" if kind == "detector" or role == "annotate" else "auc")
     if select_by not in ("auc", "objective"):
         errs.append(f"{where}: select_by {select_by!r} not in auc, objective")
     mvr = d.get("min_val_rows", 20)
@@ -530,8 +653,8 @@ def _stage(name: str, d: Any, errs: list[str]) -> Stage | None:
                 if not _is_int(n_iter) or n_iter < 1:
                     errs.append(f"{cw} search: n_iter must be a positive integer")
         if score is not None:
-            if kind != "detector":
-                errs.append(f"{cw}: 'score' overrides apply to detectors only")
+            if kind != "detector" or fit_on == "pool":
+                errs.append(f"{cw}: 'score' overrides apply to detectors fitted once only")
             else:
                 _keys(
                     score,
@@ -540,13 +663,25 @@ def _stage(name: str, d: Any, errs: list[str]) -> Stage | None:
                     errs,
                     required={"method", "higher_is_anomalous"},
                 )
-        _check_class(c["class"], params, search, cw, errs, role=kind, calibrate=calibrate, score=score)
+        role_key = "pool" if fit_on == "pool" and kind == "detector" else kind
+        _check_class(c["class"], params, search, cw, errs, role=role_key, calibrate=calibrate, score=score)
         label = f"{str(c['class']).rsplit('.', 1)[-1]}#{i}"
         cands.append(
             Candidate(cls=str(c["class"]), params=dict(params), search=search, score=score, label=label)
         )
     if pipeline and any(_is_custom_class(c.cls) for c in cands):
         errs.append(f"{where}: a custom adapter class does its own preprocessing; remove the pipeline steps")
+
+    min_pool = DEFAULT_MIN_POOL
+    if kind == "detector" and fit_on == "pool":
+        k = _neighbours(cands)
+        need = (k + 1) if k is not None else DEFAULT_MIN_POOL
+        min_pool = d.get("min_pool", need)
+        if not _is_int(min_pool) or min_pool < 2:
+            errs.append(f"{where}: min_pool must be an integer of at least 2")
+            min_pool = need
+        elif k is not None and min_pool < k + 1:
+            errs.append(f"{where}: min_pool {min_pool} is below the largest neighbour count + 1 ({k + 1})")
     return Stage(
         name=name,
         kind=kind,
@@ -554,11 +689,17 @@ def _stage(name: str, d: Any, errs: list[str]) -> Stage | None:
         routes=routes,
         decision=decision,
         train_on=train_on,
-        calibrate=str(calibrate),
-        fit_on=str(fit_on),
+        calibrate=str(calibrate) if kind != "detector" else "none",
+        fit_on=str(fit_on) if kind == "detector" else "fit",
         pipeline=tuple(pipeline),
         select_by=str(select_by),
         min_val_rows=int(mvr),
+        role=role,
+        extra_features=tuple(extra),
+        hard=hard,
+        type_objective=str(type_objective),
+        prep_fit_on=str(prep_fit_on),
+        min_pool=int(min_pool),
     )
 
 
@@ -569,17 +710,19 @@ def _is_custom_class(path: str) -> bool:
         return False
 
 
-def _decision(d: Any, kind: str, where: str, errs: list[str]) -> Decision:
-    fallback = Decision("threshold", (0.5,), OUTPUTS[kind][1])
+def _decision(d: Any, kind: str, role: str, routes: dict, *, where: str, errs: list[str]) -> Decision:
+    outputs = OUTPUTS.get(kind, tuple(routes))
+    fallback = Decision("threshold", (0.5,), outputs[1] if len(outputs) > 1 else NEXT)
     if not _keys(
         d, {"threshold", "grid", "budget", "off", "top_fraction", "confidence"}, f"{where} decision", errs
     ):
         return fallback
-    for k in ("top_fraction", "confidence"):
-        if k in d:
-            _later(k, errs, f"{where} decision")
-    modes = [k for k in ("threshold", "grid", "budget") if k in d]
-    allowed = ("threshold", "grid") if kind == "classifier" else ("threshold", "grid", "budget")
+    allowed = {
+        "classifier": ("threshold", "grid"),
+        "detector": ("threshold", "grid", "budget", "top_fraction"),
+        "multiclass": ("confidence",),
+    }[kind]
+    modes = [k for k in ("threshold", "grid", "budget", "top_fraction", "confidence") if k in d]
     if len(modes) != 1 or modes[0] not in allowed:
         errs.append(f"{where} decision: give exactly one of {allowed}")
         return fallback
@@ -595,18 +738,26 @@ def _decision(d: Any, kind: str, where: str, errs: list[str]) -> Decision:
         errs.append(f"{where} decision.grid: a list of values")
     if kind == "classifier" and not all(0 <= x <= 1 for x in values):
         errs.append(f"{where} decision.{mode}: classifier thresholds are probabilities in [0, 1]")
-    if mode == "budget" and not all(0 < x < 1 for x in values):
-        errs.append(f"{where} decision.budget: alarm budgets are fractions in (0, 1)")
+    if mode in ("budget", "top_fraction") and not all(0 < x < 1 for x in values):
+        errs.append(f"{where} decision.{mode}: fractions in (0, 1)")
+    if mode == "confidence" and not all(0 <= x <= 1 for x in values):
+        errs.append(f"{where} decision.confidence: probabilities in [0, 1]")
     off = d.get("off")
-    if off is None:
+    if kind == "multiclass" and role == "annotate":
+        if off is not None:
+            errs.append(f"{where} decision.off: an annotate stage is off by passing flows on without a type")
+        off = NEXT
+    elif off is None:
         errs.append(
             f"{where} decision: 'off' is required (the output every flow takes when the stage is off; "
-            f"one of {OUTPUTS[kind]})"
+            f"one of {tuple(outputs)})"
         )
-        off = OUTPUTS[kind][1]
-    elif off not in OUTPUTS[kind]:
-        errs.append(f"{where} decision.off: must be one of {OUTPUTS[kind]}")
-    return Decision(mode=mode, values=tuple(float(x) for x in values), off=str(off))
+        off = outputs[-1] if outputs else NEXT
+    elif off not in outputs:
+        errs.append(f"{where} decision.off: must be one of {tuple(outputs)}")
+    return Decision(
+        mode=mode, values=tuple(float(x) for x in values), off=str(off), listed=isinstance(v, list)
+    )
 
 
 def import_class(path: str) -> Any:
@@ -647,10 +798,15 @@ def _check_class(
         return
     contract = getattr(cls, "idslab_contract", None)
     if contract is not None:
-        expect = {"classifier": "AttackScore", "detector": "AnomalyScore"}.get(role)
+        expect = {
+            "classifier": "AttackScore",
+            "multiclass": "ClassProba",
+            "detector": "AnomalyScore",
+            "pool": "BatchAnomaly",
+        }.get(role)
         if role != "step" and contract != expect:
-            errs.append(f"{where}: adapter declares contract {contract!r}, a {role} stage needs {expect!r}")
-        if role == "classifier" and calibrate != "none":
+            errs.append(f"{where}: adapter declares contract {contract!r}, this stage needs {expect!r}")
+        if role in ("classifier", "multiclass") and calibrate != "none":
             errs.append(f"{where}: a custom adapter cannot be calibrated; set calibrate: none")
         if search is not None:
             errs.append(f"{where}: a custom adapter cannot be searched; list each setting as a candidate")
@@ -675,13 +831,16 @@ def _check_class(
     if role == "step":
         if not (hasattr(obj, "transform") or hasattr(obj, "fit_resample")):
             errs.append(f"{where}: pipeline step {path} has neither transform nor fit_resample")
-    elif role == "classifier":
+    elif role in ("classifier", "multiclass"):
         if not hasattr(obj, "predict_proba") and not hasattr(obj, "decision_function"):
             errs.append(f"{where}: {path} has neither predict_proba nor decision_function")
         elif not hasattr(obj, "predict_proba") and calibrate == "none":
-            errs.append(
-                f"{where}: {path} has no predict_proba; set calibrate: sigmoid so the stage outputs P(attack)"
-            )
+            errs.append(f"{where}: {path} has no predict_proba; set calibrate: sigmoid to get probabilities")
+    elif role == "pool":
+        if "novelty" in known and params.get("novelty") is True:
+            errs.append(f"{where}: a pool detector scores the batch it was fitted on; novelty must be false")
+        if not hasattr(obj, "fit"):
+            errs.append(f"{where}: {path} has no fit method")
     elif role == "detector":
         if "novelty" in known and params.get("novelty") is False:
             errs.append(f"{where}: novelty must be true for a detector fitted once (fit_on fit or benign)")
@@ -726,6 +885,68 @@ def _graph(cfg: Config, errs: list[str]) -> None:
         errs.append(f"stages not reachable from the entry stage: {unreachable}")
 
 
+def _dependencies(cfg: Config, errs: list[str]) -> None:
+    """Score sources must exist, give a per-row score on every split, and form no cycle with the routes."""
+    for name, st in cfg.stages.items():
+        for src in cfg.sources(name):
+            what = "hard.source" if st.hard and src == st.hard["source"] else "extra_features"
+            if src == name:
+                errs.append(f"stage {name}: {what} names the stage itself")
+            elif src not in cfg.stages:
+                errs.append(f"stage {name}: {what} '{src}' is not a stage")
+            elif cfg.stages[src].transductive:
+                errs.append(
+                    f"stage {name}: {what} '{src}' is a pool detector, which scores only the flows reaching "
+                    "it; a score source must score every row"
+                )
+            elif what == "hard.source" and cfg.stages[src].kind == "multiclass":
+                errs.append(
+                    f"stage {name}: hard.source '{src}' must give one score per row (not a multiclass stage)"
+                )
+    if errs:
+        return
+    edges = cfg.edges()
+    state: dict[str, int] = {}
+
+    def visit(n: str, path: list[str]) -> None:
+        if n not in edges:
+            return
+        if state.get(n) == 1:
+            errs.append(f"routes and score dependencies form a cycle: {' -> '.join([*path, n])}")
+            return
+        if state.get(n) == 2:
+            return
+        state[n] = 1
+        for t in edges[n].values():
+            visit(t, [*path, n])
+        state[n] = 2
+
+    for n in cfg.stages:
+        visit(n, [])
+
+
+def check_against_data(cfg: Config, types: set[str] | None) -> None:
+    """Checks that need the dataset's (mapped) type values; raises ConfigError."""
+    errs = []
+    for name, st in cfg.stages.items():
+        if st.kind == "multiclass" and types is None:
+            errs.append(f"stage {name}: a multiclass stage needs dataset.type")
+        if types is None:
+            continue
+        if st.kind == "multiclass" and st.role == "decide":
+            bad = sorted(set(st.routes) - types - {UNCERTAIN, DEFAULT})
+            if bad:
+                errs.append(f"stage {name}: route names {bad} are not types in the data ({sorted(types)})")
+            if st.decision.off not in st.routes:
+                errs.append(f"stage {name}: decision.off '{st.decision.off}' is not one of its routes")
+        if isinstance(st.train_on, list):
+            bad = sorted(set(st.train_on) - types)
+            if bad:
+                errs.append(f"stage {name}: train_on types {bad} are not in the data ({sorted(types)})")
+    if errs:
+        raise ConfigError("\n".join(errs))
+
+
 def _semantics(cfg: Config, errs: list[str]) -> None:
     fs = cfg.controls.first_stage
     if fs not in cfg.stages or cfg.stages[fs].kind != "classifier":
@@ -734,6 +955,8 @@ def _semantics(cfg: Config, errs: list[str]) -> None:
         )
     ds = cfg.dataset
     for name, st in cfg.stages.items():
+        if st.kind == "multiclass" and ds.type is None:
+            errs.append(f"stage {name}: a multiclass stage needs dataset.type")
         if isinstance(st.train_on, list):
             if ds.type is None:
                 errs.append(f"stage {name}: train_on as a list of types needs dataset.type")

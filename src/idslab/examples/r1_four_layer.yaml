@@ -1,0 +1,66 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 hashtagRR
+#
+# Reference design R1, full four-layer form: entry classifier, router, type stage
+# and an anomaly gate refitted on each batch. The router's score is a feature of
+# the type stage (out-of-fold on FIT), the type stage names attacks without
+# changing the verdict, and the gate re-checks the flows the router reverted.
+# Data paths are relative to this file.
+
+name: r1-four-layer
+dataset:
+  train: data/train.parquet
+  test: data/test.parquet
+  label: label
+  type: attack_cat
+  normal_type: Normal
+protocol:
+  seeds: [0, 1, 2]
+  objective: accuracy
+entry: binary
+stages:
+  binary:
+    kind: classifier
+    calibrate: sigmoid
+    pipeline:
+      - {class: idslab.prep.Encode, params: {categorical: [proto, service]}}
+    candidates:
+      - class: sklearn.ensemble.RandomForestClassifier
+        params: {n_estimators: 200}
+    decision: {threshold: 0.5, off: benign}
+    routes: {attack: router, benign: BENIGN}
+  router:
+    kind: classifier
+    pipeline:
+      - {class: idslab.prep.Encode, params: {categorical: [proto, service]}}
+    candidates:
+      - class: sklearn.ensemble.RandomForestClassifier
+        params: {n_estimators: 200}
+    decision: {grid: [0.5, 0.6, 0.7, 0.8, 0.9], off: attack}
+    routes: {attack: type, benign: gate}
+  type:
+    kind: multiclass
+    role: annotate
+    calibrate: sigmoid
+    extra_features: [router]
+    pipeline:
+      - {class: idslab.prep.Encode, params: {categorical: [proto, service]}}
+    candidates:
+      - class: sklearn.ensemble.HistGradientBoostingClassifier
+    decision: {confidence: [0.0, 0.2, 0.4]}
+    next: ATTACK
+  gate:
+    kind: detector
+    fit_on: pool
+    prep_fit_on: fit
+    pipeline:
+      - {class: idslab.prep.Encode, params: {categorical: [proto, service]}}
+      - {class: sklearn.preprocessing.StandardScaler}
+    candidates:
+      - class: sklearn.neighbors.LocalOutlierFactor
+        params: {n_neighbors: 50}
+    decision: {top_fraction: [0.02, 0.05, 0.10], off: normal}
+    routes: {anomalous: ATTACK, normal: BENIGN}
+controls:
+  bootstrap: 1000
+  frontier_bootstrap: 200

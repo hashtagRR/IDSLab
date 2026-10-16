@@ -14,8 +14,16 @@ from dataclasses import replace
 import numpy as np
 
 from idslab.config import Config
-from idslab.graph import Routing, route, with_off
-from idslab.metrics import binary_metrics, em_prior, frontier_ci, frontier_gap, objective, paired_bootstrap
+from idslab.graph import Routing, recorded_types, route, with_off
+from idslab.metrics import (
+    binary_metrics,
+    em_prior,
+    frontier_ci,
+    frontier_gap,
+    objective,
+    paired_bootstrap,
+    type_metrics,
+)
 from idslab.selection import Scores, Selection, active_scores
 
 
@@ -47,6 +55,7 @@ def evaluate(
     shares: dict[str, float],
     first_train_share: float,
     seed: int,
+    types_test: np.ndarray | None = None,
 ) -> tuple[dict, dict[str, np.ndarray], Routing]:
     """TEST evaluation of the frozen cascade and every control.
 
@@ -130,4 +139,14 @@ def evaluate(
         "prefix_test": prefix,
         "prevalence": prevalence,
     }
+    typed = [s for s in order if cfg.stages[s].kind == "multiclass" and not state[s].off]
+    if typed and types_test is not None:
+        recorded = recorded_types(routing, cfg.dataset.normal_type)
+        summary["types_test"] = {
+            "stages": typed,
+            "cascade": type_metrics(types_test, recorded, y_test == 1),
+        }
+        preds["type_recorded"] = recorded
+    if routing.pool_off:
+        summary["pool_stages_off_on_test"] = routing.pool_off
     return summary, preds, routing

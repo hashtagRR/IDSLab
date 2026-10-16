@@ -19,7 +19,7 @@ from idslab.report import write_report
 from idslab.runner import data_fingerprints, run
 from idslab.synthetic import write_example
 
-EXAMPLES = ("r1_router_gate.yaml", "r2_anomaly_first.yaml")
+EXAMPLES = ("r1_router_gate.yaml", "r2_anomaly_first.yaml", "r1_four_layer.yaml")
 
 
 def _validate(args: argparse.Namespace) -> int:

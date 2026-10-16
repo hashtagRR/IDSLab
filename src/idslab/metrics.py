@@ -232,3 +232,48 @@ def em_prior(p: np.ndarray, train_prior: float, iters: int = 500, tol: float = 1
             return new
         pi = new
     return pi
+
+
+def multiclass_auc(true: np.ndarray, proba: np.ndarray, classes: tuple[str, ...]) -> float | None:
+    """One-vs-rest AUC (weighted by support) over the types present in ``true``.
+
+    Rows whose type the model never saw are left out; the probabilities of the types
+    present are renormalised. None when fewer than two known types are present.
+    """
+    true = np.asarray(true).astype(str)
+    names = [str(c) for c in classes]
+    present = [c for c in sorted(set(true.tolist())) if c in names]
+    if len(present) < 2:
+        return None
+    rows = np.isin(true, present)
+    P = np.asarray(proba)[rows][:, [names.index(c) for c in present]]
+    total = P.sum(axis=1, keepdims=True)
+    P = np.divide(P, total, out=np.full_like(P, 1.0 / len(present)), where=total > 0)
+    t = true[rows]
+    if len(present) == 2:
+        return float(roc_auc_score(t == present[1], P[:, 1]))
+    return float(roc_auc_score(t, P, multi_class="ovr", average="weighted", labels=present))
+
+
+def type_metrics(true: np.ndarray, recorded: np.ndarray, attack: np.ndarray) -> dict:
+    """Type metrics on the true attacks; untyped, untyped_normal and uncertain count as wrong."""
+    t = np.asarray(true).astype(str)[attack]
+    r = np.asarray(recorded).astype(str)[attack]
+    if len(t) == 0:
+        return {"n_attacks": 0}
+    labels = sorted(set(t.tolist()))
+    per = {}
+    for c in labels:
+        tp = int(((r == c) & (t == c)).sum())
+        pred_c, true_c = int((r == c).sum()), int((t == c).sum())
+        prec = tp / pred_c if pred_c else 0.0
+        rec = tp / true_c if true_c else 0.0
+        f1 = 2 * prec * rec / (prec + rec) if prec + rec else 0.0
+        per[c] = {"precision": prec, "recall": rec, "f1": f1, "support": true_c}
+    return {
+        "n_attacks": len(t),
+        "accuracy": float((r == t).mean()),
+        "macro_f1": float(np.mean([p["f1"] for p in per.values()])),
+        "per_type": per,
+        "share_recorded": {k: float((r == k).mean()) for k in sorted(set(r.tolist()) - set(labels))},
+    }

@@ -101,11 +101,8 @@ def test_routes_must_cover_outputs():
 @pytest.mark.parametrize(
     ("change", "phase"),
     [
-        (lambda r: r["stages"]["binary"].update(kind="multiclass"), "phase 2"),
-        (lambda r: r["stages"]["router"].update(extra_features=["binary"]), "phase 2"),
-        (lambda r: r["stages"]["gate"].update(fit_on="pool"), "phase 2"),
-        (lambda r: r["stages"]["gate"]["decision"].update(top_fraction=[0.05]), "phase 2"),
         (lambda r: r.setdefault("protocol", {}).update(mode="heldout_family"), "phase 3"),
+        (lambda r: r.setdefault("protocol", {}).update(novel_types=["x"]), "phase 3"),
         (lambda r: r.setdefault("protocol", {}).update(search="joint"), "phase 4"),
     ],
 )
@@ -256,3 +253,84 @@ def test_classifier_type_list_needs_an_attack_type():
     raw = base()
     raw["stages"]["router"]["train_on"] = ["Normal"]
     assert "at least one attack type" in errors(raw)
+
+
+def four_layer():
+    raw = base()
+    raw["stages"]["router"]["routes"] = {"attack": "type", "benign": "gate"}
+    raw["stages"]["type"] = {
+        "kind": "multiclass",
+        "extra_features": ["router"],
+        "candidates": [{"class": "sklearn.ensemble.HistGradientBoostingClassifier"}],
+        "decision": {"confidence": [0.0, 0.2]},
+        "next": "ATTACK",
+    }
+    raw["stages"]["gate"] = {
+        "kind": "detector",
+        "fit_on": "pool",
+        "candidates": [{"class": "sklearn.neighbors.LocalOutlierFactor", "params": {"n_neighbors": 30}}],
+        "decision": {"top_fraction": [0.02, 0.05], "off": "normal"},
+        "routes": {"anomalous": "ATTACK", "normal": "BENIGN"},
+    }
+    return raw
+
+
+def test_four_layer_design_loads():
+    cfg = from_dict(four_layer())
+    assert cfg.order() == ["binary", "router", "gate", "type"]  # ties keep config order
+    t, g = cfg.stages["type"], cfg.stages["gate"]
+    assert t.role == "annotate"
+    assert t.routes == {"next": "ATTACK"}
+    assert t.decision.tunable
+    assert g.transductive
+    assert g.min_pool == 31
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        (lambda r: r["stages"]["type"].update(routes={"default": "ATTACK"}), "use 'next'"),
+        (lambda r: r["stages"]["type"].update(role="decide", routes={"DoS": "ATTACK"}), "'default' route"),
+        (lambda r: r["stages"]["type"].update(extra_features=["gate"]), "pool detector"),
+        (lambda r: r["stages"]["type"].update(extra_features=["type"]), "names the stage itself"),
+        (lambda r: r["stages"]["gate"].update(min_pool=10), "below the largest neighbour count"),
+        (lambda r: r["stages"]["gate"]["decision"].update(budget=0.05), "exactly one of"),
+        (lambda r: r["stages"]["gate"].update(decision={"budget": 0.05, "off": "normal"}), "not pool"),
+        (
+            lambda r: r["stages"]["gate"]["candidates"][0]["params"].update(novelty=True),
+            "novelty must be false",
+        ),
+        (lambda r: r["stages"]["type"].update(train_on="hard"), "needs a 'hard' block"),
+        (
+            lambda r: r["stages"]["type"].update(
+                train_on="hard", hard={"source": "router", "band": [0.7, 0.3]}
+            ),
+            "low < high",
+        ),
+    ],
+)
+def test_phase2_rules(change, message):
+    raw = four_layer()
+    change(raw)
+    assert message in errors(raw)
+
+
+def test_dependency_cycle_is_rejected():
+    raw = four_layer()
+    raw["stages"]["binary"]["extra_features"] = ["router"]  # router comes after binary in the routes
+    assert "form a cycle" in errors(raw)
+
+
+def test_route_names_are_checked_against_the_data():
+    from idslab.config import check_against_data  # noqa: PLC0415
+
+    raw = four_layer()
+    raw["stages"]["type"].update(
+        role="decide", routes={"DoS": "ATTACK", "Typo": "ATTACK", "default": "ATTACK"}
+    )
+    del raw["stages"]["type"]["next"]
+    raw["stages"]["type"]["decision"]["off"] = "default"
+    cfg = from_dict(raw)
+    with pytest.raises(ConfigError, match=r"\['Typo'\] are not types"):
+        check_against_data(cfg, {"Normal", "DoS", "Scan"})
+    check_against_data(from_dict(four_layer()), {"Normal", "DoS"})

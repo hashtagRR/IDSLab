@@ -2,9 +2,11 @@
 # Copyright (C) 2026 hashtagRR
 """Run units: one seed of one config, from splits to written results.
 
-Order inside a unit, which is what keeps TEST labels out of every choice:
-fit candidates, score VAL and TEST features, select on VAL, freeze, then read
-TEST labels for the first time and evaluate the cascade and its controls.
+Order inside a unit, which is what keeps TEST labels out of every choice: stage
+by stage, fit the candidates, score VAL and choose on VAL (a stage that feeds
+others then adds its out-of-fold FIT scores and VAL scores to the feature store);
+freeze; score TEST features for the chosen candidates; read TEST labels for the
+first time and evaluate the cascade and its controls.
 """
 
 from __future__ import annotations
@@ -21,12 +23,19 @@ import pandas as pd
 from joblib import Parallel, delayed
 
 from idslab import __version__
-from idslab.config import Config
+from idslab.adapters import ClassScores
+from idslab.config import Config, check_against_data
 from idslab.controls import evaluate
 from idslab.data import Splits, Table, file_fingerprint, load_table, make_splits
-from idslab.fitting import fit_candidate
-from idslab.graph import describe, paths
+from idslab.features import FeatureStore, column_names
+from idslab.fitting import Fitted, fit_candidate, oof_scores
+from idslab.graph import PoolScorer, describe, paths
 from idslab.selection import Selection, active_scores, select
+
+POOL_STATEMENT = (
+    "Pool detectors are refitted on the whole batch of flows that reaches them, so their results assume "
+    "batch processing of the split; the bootstrap resamples their stored predictions without refitting."
+)
 
 STATEMENTS = [
     (
@@ -79,6 +88,98 @@ def unit_dir(out_root: str, cfg: Config, seed: int) -> str:
     return os.path.join(out_root, cfg.name, cfg.protocol.mode, f"seed_{seed}")
 
 
+class Provider:
+    """Fits and scores stages on demand for selection, and keeps the feature store filled.
+
+    VAL scores are given stage by stage; when selection keeps a candidate for a stage
+    that feeds others, its out-of-fold FIT scores and VAL scores enter the store.
+    TEST scores are produced only through ``test``, which runs after the freeze.
+    """
+
+    def __init__(self, cfg: Config, table: Table, split: Splits, *, seed: int, n_jobs: int):
+        self.cfg, self.table, self.split, self.seed, self.n_jobs = cfg, table, split, seed, n_jobs
+        self.store = FeatureStore(table.X)
+        self.fitted: dict[str, list[Fitted]] = {}
+        self.val_scores: dict[str, list[Any]] = {}
+        self.feeds = {src for n in cfg.stages for src in cfg.sources(n)}
+        self.choice: dict[str, int] = {}
+        self.test_filled: set[str] = set()
+
+    def _fit(self, s: str) -> list[Fitted]:
+        if s not in self.fitted:
+            st = self.cfg.stages[s]
+            self.fitted[s] = [
+                fit_candidate(st, i, self.table, self.split, self.store, seed=self.seed, n_jobs=self.n_jobs)
+                for i in range(len(st.candidates))
+            ]
+        return self.fitted[s]
+
+    def _pool(self, f: Fitted, rows: np.ndarray) -> PoolScorer:
+        cache: dict[bytes, np.ndarray] = {}
+        X = self.table.X
+
+        def scorer(mask: np.ndarray) -> np.ndarray:
+            key = np.packbits(mask).tobytes()
+            if key not in cache:
+                cache[key] = f.pool_score(X.iloc[rows[mask]])
+            return cache[key]
+
+        return scorer
+
+    def val(self, stage: str) -> list[Any]:
+        if stage not in self.val_scores:
+            st, fl = self.cfg.stages[stage], self._fit(stage)
+            if st.transductive:
+                self.val_scores[stage] = [self._pool(f, self.split.val) for f in fl]
+            else:
+                X = self.store.frame(st.extra_features, self.split.val)
+                self.val_scores[stage] = [f.score(X) for f in fl]
+        return self.val_scores[stage]
+
+    def chosen(self, stage: str, candidate: int) -> None:
+        self.choice[stage] = candidate
+        if stage not in self.feeds or self.store.has(stage):
+            return
+        st, f = self.cfg.stages[stage], self._fit(stage)[candidate]
+        self.store.declare(stage, column_names(stage, f.classes()))
+        oof = oof_scores(
+            st,
+            f,
+            self.table,
+            self.split,
+            self.store,
+            folds=self.cfg.protocol.oof_folds,
+            seed=self.seed,
+            n_jobs=self.n_jobs,
+        )
+        self.store.put(stage, self.split.fit, oof)
+        self.store.put(
+            stage, self.split.val, f.raw_score(self.store.frame(st.extra_features, self.split.val))
+        )
+
+    def _fill_test(self, src: str) -> None:
+        """TEST feature scores of a source (after the freeze)."""
+        if src in self.test_filled:
+            return
+        for upstream in self.cfg.sources(src):
+            self._fill_test(upstream)
+        st = self.cfg.stages[src]
+        f = self._fit(src)[self.choice[src]]
+        self.store.put(
+            src, self.split.test, f.raw_score(self.store.frame(st.extra_features, self.split.test))
+        )
+        self.test_filled.add(src)
+
+    def test(self, stage: str, candidate: int) -> Any:
+        """The stage's TEST score for one candidate; call only after the configuration is frozen."""
+        for src in self.cfg.sources(stage):
+            self._fill_test(src)
+        st, f = self.cfg.stages[stage], self._fit(stage)[candidate]
+        if st.transductive:
+            return self._pool(f, self.split.test)
+        return f.score(self.store.frame(st.extra_features, self.split.test))
+
+
 def frozen_config(cfg: Config, sel: Selection) -> dict:
     return {s: describe(cfg.stages[s], sel.state[s]) for s in sel.order}
 
@@ -113,27 +214,22 @@ def run_seed(
         os.remove(done)
 
     order = cfg.order()
-    fitted = {
-        s: [
-            fit_candidate(cfg.stages[s], i, table, split, seed=seed, n_jobs=n_jobs)
-            for i in range(len(cfg.stages[s].candidates))
-        ]
-        for s in order
-    }
-    X_val, X_test = table.X.iloc[split.val], table.X.iloc[split.test]
-    val_scores = {s: [f.score(X_val) for f in fl] for s, fl in fitted.items()}
+    provider = Provider(cfg, table, split, seed=seed, n_jobs=n_jobs)
     y_val = table.y[split.val]
+    types_val = None if table.types is None else table.types[split.val].astype(str)
 
-    sel = select(cfg, val_scores, y_val)
+    sel = select(cfg, provider, y_val, types_val)
     frozen = frozen_config(cfg, sel)
+    fitted, val_scores = provider.fitted, provider.val_scores
     # TEST features are scored only now, and only for the chosen candidates
     test_scores = {
-        s: {st.candidate: fitted[s][st.candidate].score(X_test)}
+        s: {st.candidate: provider.test(s, st.candidate)}
         for s, st in sel.state.items()
         if not st.off and st.candidate is not None
     }
 
     y_test = table.y[split.test]  # first use of TEST labels, after the freeze
+    types_test = None if table.types is None else table.types[split.test].astype(str)
     first = cfg.controls.first_stage
     first_fit = fitted[first][sel.state[first].candidate or 0]
     if first_fit.prior_share is None:
@@ -149,6 +245,7 @@ def run_seed(
         shares=shares,
         first_train_share=first_fit.prior_share,
         seed=seed,
+        types_test=types_test,
     )
 
     active = active_scores(test_scores, sel.state)
@@ -156,7 +253,10 @@ def run_seed(
     if table.types is not None:
         flow["type"] = table.types[split.test]
     for s, sc in active.items():
-        flow[f"score_{s}"] = sc
+        if isinstance(sc, np.ndarray):
+            flow[f"score_{s}"] = sc
+        elif isinstance(sc, ClassScores):
+            flow[f"confidence_{s}"] = sc.proba.max(axis=1)
     flow["path"] = paths(routing, order)
     flow["exit_stage"] = routing.exit_stage
     for name, p in preds.items():
@@ -165,8 +265,12 @@ def run_seed(
 
     vflow = pd.DataFrame({"row_id": table.row_id[split.val], "y": y_val})
     for s, fl in fitted.items():
-        for f, sc in zip(fl, val_scores[s], strict=True):
-            vflow[f"score_{s}__{f.label}"] = sc
+        for f, sc in zip(fl, val_scores.get(s, []), strict=False):
+            if isinstance(sc, np.ndarray):
+                vflow[f"score_{s}__{f.label}"] = sc
+            elif isinstance(sc, ClassScores):
+                for j, c in enumerate(sc.classes):
+                    vflow[f"proba_{s}__{f.label}__{c}"] = sc.proba[:, j]
     vflow.to_parquet(os.path.join(d, "val_flow.parquet"), index=False)
 
     ids = pd.concat(
@@ -191,7 +295,12 @@ def run_seed(
         "selection_trace": sel.trace,
         "frozen_configuration": frozen,
         "controls": controls,
-        "statements": STATEMENTS,
+        "statements": STATEMENTS
+        + (
+            [POOL_STATEMENT]
+            if any(cfg.stages[s].transductive and not sel.state[s].off for s in order)
+            else []
+        ),
         "runtime_seconds": round(time.perf_counter() - t0, 2),
     }
     write_json(os.path.join(d, "summary.json"), summary)
@@ -213,6 +322,7 @@ def run(
 ) -> list[dict]:
     """Run every seed of ``cfg``; finished units with matching fingerprints are skipped."""
     table = load_table(cfg)
+    check_against_data(cfg, None if table.types is None else set(np.unique(table.types).astype(str).tolist()))
     data_fps = data_fps if data_fps is not None else data_fingerprints(cfg)
     use = list(dict.fromkeys(seeds if seeds is not None else cfg.protocol.seeds))  # each seed once
     if jobs == 1 or len(use) == 1:
