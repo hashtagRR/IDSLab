@@ -28,7 +28,7 @@ def load_summaries(
     DONE file must carry; the second value lists every seed left out and why.
     """
     kept, left_out = [], []
-    for path in sorted(glob.glob(os.path.join(mode_dir, "seed_*", "summary.json"))):
+    for path in sorted(glob.glob(os.path.join(mode_dir, "seed_*", "**", "summary.json"), recursive=True)):
         done = os.path.join(os.path.dirname(path), "DONE")
         if not os.path.isfile(done):
             continue
@@ -45,7 +45,12 @@ def load_summaries(
             )
         else:
             kept.append(s)
-    return sorted(kept, key=lambda s: s["seed"]), left_out
+    return sorted(kept, key=lambda s: (s["seed"], s.get("family") or "")), left_out
+
+
+def unit(s: dict) -> str:
+    """Label of a run unit: the seed, or seed/family in held-out mode."""
+    return str(s["seed"]) if s.get("family") is None else f"{s['seed']}/{s['family']}"
 
 
 def _ms(values: Sequence[float | None]) -> dict:
@@ -82,6 +87,35 @@ def _types(summaries: list[dict]) -> dict | None:
     }
 
 
+UNSEEN_SYSTEMS = ("cascade", "B1_first_stage", "budget_matched_first_stage")
+
+
+def _unseen(summaries: list[dict]) -> dict | None:
+    """Unseen-attack results grouped by held-out family (or one group for natural novelty)."""
+    groups: dict[str, list[dict]] = {}
+    for s in summaries:
+        block = s["controls"].get("unseen_test")
+        if block:
+            groups.setdefault(s.get("family") or "novel types", []).append(block)
+    if not groups:
+        return None
+    out = {}
+    for name, blocks in groups.items():
+        gaps = [b.get("frontier_gap_unseen") or {} for b in blocks]
+        out[name] = {
+            "runs": len(blocks),
+            "n_unseen": _ms([b["n_unseen"] for b in blocks]),
+            "recall_unseen": {
+                k: _ms([b["systems"][k]["recall_unseen"] for b in blocks]) for k in UNSEEN_SYSTEMS
+            },
+            "fpr_cascade": _ms([b["systems"]["cascade"]["fpr_benign"] for b in blocks]),
+            "gap_interp": _ms([g.get("gap_interp") for g in gaps]),
+            "gap_ci_above_zero": sum(1 for g in gaps if g.get("ci95_interp") and g["ci95_interp"][0] > 0),
+            "first_stage_auc": _ms([b.get("first_stage_auc_unseen_vs_benign") for b in blocks]),
+        }
+    return out
+
+
 def aggregate(summaries: list[dict]) -> dict:
     goal = summaries[0]["controls"]["objective"]
     systems = {
@@ -109,7 +143,8 @@ def aggregate(summaries: list[dict]) -> dict:
         "mode": summaries[0]["mode"],
         "objective": goal,
         "first_stage": summaries[0]["controls"]["first_stage"],
-        "seeds": [s["seed"] for s in summaries],
+        "seeds": sorted({s["seed"] for s in summaries}),
+        "units": [unit(s) for s in summaries],
         "idslab_version": summaries[0]["idslab_version"],
         "systems_test": systems,
         "cascade_minus_control": diffs,
@@ -121,10 +156,11 @@ def aggregate(summaries: list[dict]) -> dict:
         },
         "stage_removal": {k: _ms(v) for k, v in removal.items()},
         "prefix_steps": {k: _ms(v) for k, v in steps.items()},
-        "frozen_per_seed": {s["seed"]: s["frozen_configuration"] for s in summaries},
-        "prevalence_per_seed": {s["seed"]: s["controls"]["prevalence"] for s in summaries},
+        "frozen_per_seed": {unit(s): s["frozen_configuration"] for s in summaries},
+        "prevalence_per_seed": {unit(s): s["controls"]["prevalence"] for s in summaries},
+        "unseen": _unseen(summaries),
         "fallbacks": {
-            s["seed"]: [f"{t['stage']}: {f}" for t in s["selection_trace"] for f in t["fallbacks"]]
+            unit(s): [f"{t['stage']}: {f}" for t in s["selection_trace"] for f in t["fallbacks"]]
             + s["split_log"]
             for s in summaries
         },
@@ -141,12 +177,12 @@ def _choice(c: dict) -> str:
 
 def to_markdown(a: dict) -> str:
     goal = a["objective"]
-    n = len(a["seeds"])
+    n = len(a["units"])
     lines = [
         f"# IDSLab report: {a['config_name']}",
         "",
         (
-            f"Mode `{a['mode']}`, seeds {a['seeds']} (n = {n}), objective `{goal}`, "
+            f"Mode `{a['mode']}`, seeds {a['seeds']} (n = {n} runs), objective `{goal}`, "
             f"first stage `{a['first_stage']}`, IDSLab {a['idslab_version']}. "
             "Values are mean ± sd over seeds on TEST."
         ),
@@ -188,6 +224,32 @@ def to_markdown(a: dict) -> str:
             f"| {c} | {_fmt(ty['per_type_f1'][c])} | {_fmt(ty['per_type_support'][c], 0)} |"
             for c in ty["per_type_f1"]
         )
+    un = a.get("unseen")
+    if un:
+        lines += [
+            "",
+            "## Unseen attacks on TEST",
+            "",
+            (
+                "Attacks absent from every training and selection row (held-out family) or found only in "
+                "TEST (natural novelty). The gap compares the cascade with the first stage's ROC hull on "
+                "the benign and unseen flows only."
+            ),
+            "",
+            (
+                "| unseen | runs | recall cascade | recall first stage | recall budget-matched | cascade FPR "
+                "| frontier gap | gap CI above 0 | first-stage AUC |"
+            ),
+            "|---|---|---|---|---|---|---|---|---|",
+        ]
+        for name, g in un.items():
+            r = g["recall_unseen"]
+            lines.append(
+                f"| {name} | {g['runs']} | {_fmt(r['cascade'])} | {_fmt(r['B1_first_stage'])} | "
+                f"{_fmt(r['budget_matched_first_stage'])} | {_fmt(g['fpr_cascade'])} | "
+                f"{_fmt(g['gap_interp'])} | {g['gap_ci_above_zero']}/{g['runs']} | "
+                f"{_fmt(g['first_stage_auc'])} |"
+            )
     fg = a["frontier_gap"]
     lines += [
         "",

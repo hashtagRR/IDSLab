@@ -49,7 +49,8 @@ def _run(args: argparse.Namespace) -> int:
         sys_ = s["controls"]["systems_test"]
         tag = "skipped (already done)" if r["skipped"] else f"{s['runtime_seconds']}s"
         print(
-            f"seed {r['seed']}: {tag}; TEST {goal} cascade {sys_['cascade'][goal]:.4f}, "
+            f"seed {r['seed']}{' family ' + r['family'] if r.get('family') else ''}: {tag}; "
+            f"TEST {goal} cascade {sys_['cascade'][goal]:.4f}, "
             f"first stage {sys_['B1_first_stage'][goal]:.4f}"
         )
     if not args.no_report:

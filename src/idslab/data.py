@@ -36,6 +36,7 @@ class Table:
     from_test_file: np.ndarray
     files: list[str]
     notes: list[str] = field(default_factory=list)
+    raw_types: np.ndarray | None = None  # types before type_map (held-out families at raw level, novelty)
 
     def __len__(self) -> int:
         return len(self.y)
@@ -107,7 +108,7 @@ def load_table(cfg: Config) -> Table:
     if len(set(row_id.tolist())) != len(row_id):
         raise DataError("row ids are not unique; set dataset.id_column to a unique column or remove it")
     notes: list[str] = []
-    types = _types(df, spec, notes)
+    types, raw_types = _types(df, spec, notes)
     y = _label(df, spec, types)
     if spec.label is not None and types is not None:
         clash = int(
@@ -124,12 +125,24 @@ def load_table(cfg: Config) -> Table:
     X = df.drop(columns=[c for c in df.columns if c in drop])
     if X.shape[1] == 0:
         raise DataError("no feature columns left after dropping label, type, id and drop columns")
-    return Table(X=X, y=y, types=types, row_id=row_id, from_test_file=from_test, files=files, notes=notes)
+    return Table(
+        X=X,
+        y=y,
+        types=types,
+        row_id=row_id,
+        from_test_file=from_test,
+        files=files,
+        notes=notes,
+        raw_types=raw_types,
+    )
 
 
-def _types(df: pd.DataFrame, spec: DatasetSpec, notes: list[str]) -> np.ndarray | None:
+def _types(
+    df: pd.DataFrame, spec: DatasetSpec, notes: list[str]
+) -> tuple[np.ndarray | None, np.ndarray | None]:
+    """(mapped types, raw types), or (None, None) without a type column."""
     if spec.type is None:
-        return None
+        return None, None
     if spec.type not in df.columns:
         raise DataError(f"type column '{spec.type}' not in the data")
     col = df[spec.type]
@@ -144,7 +157,7 @@ def _types(df: pd.DataFrame, spec: DatasetSpec, notes: list[str]) -> np.ndarray 
     unused = sorted(set(spec.type_map) - set(raw.unique()))
     if unused:
         notes.append(f"type_map keys not present in the data: {unused}")
-    return mapped.to_numpy(dtype=object)
+    return mapped.to_numpy(dtype=object), raw.to_numpy(dtype=object)
 
 
 def _label(df: pd.DataFrame, spec: DatasetSpec, types: np.ndarray | None) -> np.ndarray:
@@ -202,7 +215,15 @@ def stratified_cut(
     return np.sort(np.asarray(part)), np.sort(np.asarray(rest))
 
 
-def make_splits(table: Table, protocol: Protocol, test_fraction: float | None, seed: int) -> Splits:
+def make_splits(
+    table: Table,
+    protocol: Protocol,
+    test_fraction: float | None,
+    seed: int,
+    exclude: np.ndarray | None = None,
+) -> Splits:
+    """Splits for one seed. ``exclude`` (a mask over the table) removes rows from the train partition
+    after the TEST cut and the train subsample, so TEST and the kept rows do not depend on it."""
     log: list[str] = []
     everything = np.arange(len(table))
     if test_fraction is None:
@@ -223,6 +244,10 @@ def make_splits(table: Table, protocol: Protocol, test_fraction: float | None, s
         rng = np.random.default_rng(seed + 202)
         test = np.sort(rng.choice(test, size=sub["test"], replace=False))
         log.append(f"TEST subsampled at random (labels not used) to {len(test)} rows")
+    if exclude is not None:
+        removed = int(exclude[pool].sum())
+        pool = pool[~exclude[pool]]
+        log.append(f"{removed} rows removed from the train partition before splitting")
     val, fit = stratified_cut(
         pool, _strata(table, pool), protocol.val_fraction, seed=seed + 1, log=log, what="VAL cut"
     )

@@ -32,11 +32,9 @@ UNCERTAIN, DEFAULT, NEXT = "uncertain", "default", "next"
 TYPE_OBJECTIVES = ("macro_f1", "accuracy", "auc")
 DEFAULT_MIN_POOL = 20
 
+MODES = ("standard", "heldout_family", "natural_novelty")
+
 LATER = {  # feature -> phase that adds it (DESIGN.md section 10)
-    "mode heldout_family": 3,
-    "mode natural_novelty": 3,
-    "family_level": 3,
-    "novel_types": 3,
     "external scores": 4,
     "search: joint": 4,
 }
@@ -116,6 +114,9 @@ class Protocol:
     n_jobs: int
     subsample: dict
     oof_folds: int = 3
+    family_level: str = "mapped"  # held-out families defined after (mapped) or before (raw) type_map
+    families: tuple[str, ...] | None = None  # held-out families to run (None: every attack family)
+    novel_types: tuple[str, ...] = ()  # natural novelty: raw types found only in TEST
 
 
 @dataclass(frozen=True)
@@ -354,22 +355,41 @@ def _protocol(d: Any, errs: list[str]) -> Protocol:
         "subsample",
         "search",
         "family_level",
+        "families",
         "novel_types",
         "oof_folds",
     }
     _keys(d, allowed, "protocol", errs)
     if not isinstance(d, dict):
         d = {}
-    for k in ("family_level", "novel_types"):
-        if k in d:
-            _later(k, errs, "protocol")
     if d.get("search") not in (None, "greedy"):
         _later("search: joint", errs, "protocol")
     mode = d.get("mode", "standard")
-    if mode in ("heldout_family", "natural_novelty"):
-        _later(f"mode {mode}", errs, "protocol")
-    elif mode != "standard":
-        errs.append(f"protocol.mode: {mode} is not a known mode")
+    if mode not in MODES:
+        errs.append(f"protocol.mode: {mode} not in {MODES}")
+    family_level = d.get("family_level", "mapped")
+    if family_level not in ("mapped", "raw"):
+        errs.append("protocol.family_level: mapped or raw")
+    families = d.get("families")
+    if families is not None and (
+        not isinstance(families, list) or not families or not all(isinstance(x, str) for x in families)
+    ):
+        errs.append("protocol.families: a non-empty list of type names")
+        families = None
+    novel = d.get("novel_types") or []
+    if not isinstance(novel, list) or not all(isinstance(x, str) for x in novel):
+        errs.append("protocol.novel_types: a list of raw type names")
+        novel = []
+    if mode == "natural_novelty" and not novel:
+        errs.append("protocol.novel_types: natural_novelty needs the raw types that appear only in TEST")
+    if mode != "heldout_family":
+        errs.extend(
+            f"protocol.{k} applies to mode heldout_family only"
+            for k in ("family_level", "families")
+            if k in d
+        )
+    if mode != "natural_novelty" and "novel_types" in d:
+        errs.append("protocol.novel_types applies to mode natural_novelty only")
     objective = d.get("objective", "accuracy")
     if objective not in OBJECTIVES:
         errs.append(f"protocol.objective: {objective} not in {OBJECTIVES}")
@@ -411,6 +431,9 @@ def _protocol(d: Any, errs: list[str]) -> Protocol:
         n_jobs=n_jobs,
         subsample=dict(sub),
         oof_folds=int(oof_folds),
+        family_level=str(family_level),
+        families=None if families is None else tuple(families),
+        novel_types=tuple(novel),
     )
 
 
@@ -925,9 +948,23 @@ def _dependencies(cfg: Config, errs: list[str]) -> None:
         visit(n, [])
 
 
-def check_against_data(cfg: Config, types: set[str] | None) -> None:
-    """Checks that need the dataset's (mapped) type values; raises ConfigError."""
+def check_against_data(cfg: Config, types: set[str] | None, raw_types: set[str] | None = None) -> None:
+    """Checks that need the dataset's type values (mapped, and raw for the modes); raises ConfigError."""
     errs = []
+    proto = cfg.protocol
+    if proto.mode == "heldout_family" and proto.families and types is not None:
+        known = (raw_types or set()) if proto.family_level == "raw" else types
+        bad = sorted(set(proto.families) - known)
+        if bad:
+            errs.append(
+                f"protocol.families {bad} are not {proto.family_level} types in the data ({sorted(known)})"
+            )
+        if cfg.dataset.normal_type in proto.families:
+            errs.append("protocol.families: the normal type cannot be held out")
+    if proto.mode == "natural_novelty" and raw_types is not None:
+        bad = sorted(set(proto.novel_types) - raw_types)
+        if bad:
+            errs.append(f"protocol.novel_types {bad} are not raw types in the data")
     for name, st in cfg.stages.items():
         if st.kind == "multiclass" and types is None:
             errs.append(f"stage {name}: a multiclass stage needs dataset.type")
@@ -954,6 +991,8 @@ def _semantics(cfg: Config, errs: list[str]) -> None:
             f"controls.first_stage '{fs}' must be a classifier stage (the controls compare against it)"
         )
     ds = cfg.dataset
+    if cfg.protocol.mode != "standard" and ds.type is None:
+        errs.append(f"protocol.mode {cfg.protocol.mode} needs dataset.type")
     for name, st in cfg.stages.items():
         if st.kind == "multiclass" and ds.type is None:
             errs.append(f"stage {name}: a multiclass stage needs dataset.type")

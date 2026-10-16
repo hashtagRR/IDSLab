@@ -98,18 +98,42 @@ def test_routes_must_cover_outputs():
     assert "routes must cover exactly" in errors(raw)
 
 
+def test_later_phase_features_are_named():
+    raw = base()
+    raw["protocol"] = {"search": "joint"}
+    assert "phase 4" in errors(raw)
+
+
 @pytest.mark.parametrize(
-    ("change", "phase"),
+    ("protocol", "message"),
     [
-        (lambda r: r.setdefault("protocol", {}).update(mode="heldout_family"), "phase 3"),
-        (lambda r: r.setdefault("protocol", {}).update(novel_types=["x"]), "phase 3"),
-        (lambda r: r.setdefault("protocol", {}).update(search="joint"), "phase 4"),
+        ({"mode": "natural_novelty"}, "needs the raw types"),
+        ({"mode": "standard", "novel_types": ["x"]}, "applies to mode natural_novelty only"),
+        ({"mode": "standard", "families": ["DoS"]}, "applies to mode heldout_family only"),
+        ({"mode": "heldout_family", "family_level": "deep"}, "mapped or raw"),
+        ({"mode": "zeroday"}, "not in"),
     ],
 )
-def test_later_phase_features_are_named(change, phase):
+def test_mode_settings_are_checked(protocol, message):
     raw = base()
-    change(raw)
-    assert phase in errors(raw)
+    raw["protocol"] = protocol
+    assert message in errors(raw)
+
+
+def test_modes_need_a_type_column_and_known_families():
+    from idslab.config import check_against_data  # noqa: PLC0415
+
+    raw = base()
+    raw["protocol"] = {"mode": "heldout_family"}
+    del raw["dataset"]["type"]
+    assert "needs dataset.type" in errors(raw)
+    raw = base()
+    raw["protocol"] = {"mode": "heldout_family", "families": ["DoS", "Ghost"]}
+    with pytest.raises(ConfigError, match="Ghost"):
+        check_against_data(from_dict(raw), {"Normal", "DoS"}, {"Normal", "DoS"})
+    raw["protocol"] = {"mode": "heldout_family", "families": ["Normal"]}
+    with pytest.raises(ConfigError, match="normal type cannot be held out"):
+        check_against_data(from_dict(raw), {"Normal", "DoS"}, {"Normal", "DoS"})
 
 
 def test_made_up_class_and_parameter_are_caught():

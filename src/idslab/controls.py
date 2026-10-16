@@ -21,8 +21,10 @@ from idslab.metrics import (
     frontier_ci,
     frontier_gap,
     objective,
+    auc,
     paired_bootstrap,
     type_metrics,
+    unseen_metrics,
 )
 from idslab.selection import Scores, Selection, active_scores
 
@@ -56,6 +58,7 @@ def evaluate(
     first_train_share: float,
     seed: int,
     types_test: np.ndarray | None = None,
+    unseen: np.ndarray | None = None,
 ) -> tuple[dict, dict[str, np.ndarray], Routing]:
     """TEST evaluation of the frozen cascade and every control.
 
@@ -149,4 +152,27 @@ def evaluate(
         preds["type_recorded"] = recorded
     if routing.pool_off:
         summary["pool_stages_off_on_test"] = routing.pool_off
+    if unseen is not None:
+        summary["unseen_test"] = unseen_block(
+            y_test, unseen, p1_test, preds, n_boot=cfg.controls.frontier_bootstrap, seed=seed
+        )
     return summary, preds, routing
+
+
+def unseen_block(
+    y: np.ndarray, unseen: np.ndarray, p1: np.ndarray, preds: dict[str, np.ndarray], *, n_boot: int, seed: int
+) -> dict:
+    """Held-out or novel attacks on TEST: per-system recall and FPR, plus the frontier gap and the
+    first-stage AUC on the {benign, unseen} subset (DESIGN.md section 7)."""
+    u = np.asarray(unseen).astype(bool) & (y == 1)
+    systems = ("cascade", "B1_first_stage", "B2_first_stage_val_cutoff", "budget_matched_first_stage")
+    out: dict = {"n_unseen": int(u.sum()), "systems": {k: unseen_metrics(y, u, preds[k]) for k in systems}}
+    sub = u | (y == 0)
+    if u.any() and (y == 0).any():
+        gap = frontier_gap(y[sub], p1[sub], preds["cascade"][sub])
+        gap["ci95_interp"] = (
+            frontier_ci(y[sub], p1[sub], preds["cascade"][sub], n_boot, seed) if gap["defined"] else None
+        )
+        out["frontier_gap_unseen"] = gap
+        out["first_stage_auc_unseen_vs_benign"] = auc(y[sub], p1[sub])
+    return out

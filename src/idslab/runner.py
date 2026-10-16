@@ -15,6 +15,7 @@ import datetime
 import json
 import math
 import os
+import re
 import time
 from typing import Any, cast
 
@@ -26,7 +27,7 @@ from idslab import __version__
 from idslab.adapters import ClassScores
 from idslab.config import Config, check_against_data
 from idslab.controls import evaluate
-from idslab.data import Splits, Table, file_fingerprint, load_table, make_splits
+from idslab.data import DataError, Splits, Table, file_fingerprint, load_table, make_splits
 from idslab.features import FeatureStore, column_names
 from idslab.fitting import Fitted, fit_candidate, oof_scores
 from idslab.graph import PoolScorer, describe, paths
@@ -84,8 +85,41 @@ def data_fingerprints(cfg: Config) -> dict[str, str]:
     return {role: file_fingerprint(cfg.path(p)) for role, p in files.items() if p is not None}
 
 
-def unit_dir(out_root: str, cfg: Config, seed: int) -> str:
-    return os.path.join(out_root, cfg.name, cfg.protocol.mode, f"seed_{seed}")
+def unit_dir(out_root: str, cfg: Config, seed: int, family: str | None = None) -> str:
+    d = os.path.join(out_root, cfg.name, cfg.protocol.mode, f"seed_{seed}")
+    return d if family is None else os.path.join(d, "fam_" + re.sub(r"[^A-Za-z0-9._-]", "_", family))
+
+
+def family_mask(cfg: Config, table: Table, family: str) -> np.ndarray:
+    """Rows of the held-out family at the configured level (mapped or raw types)."""
+    t = table.raw_types if cfg.protocol.family_level == "raw" else table.types
+    if t is None:
+        raise DataError("held-out families need a type column")
+    return t.astype(str) == family
+
+
+def families(cfg: Config, table: Table) -> list[str]:
+    """Held-out families to run: the configured list, or every attack type of the train partition."""
+    if cfg.protocol.families:
+        return list(cfg.protocol.families)
+    t = table.raw_types if cfg.protocol.family_level == "raw" else table.types
+    if t is None:
+        raise DataError("held-out families need a type column")
+    train = ~table.from_test_file if cfg.dataset.test_fraction is None else np.ones(len(table), bool)
+    attack = train & (table.y == 1)
+    return sorted(set(t[attack].astype(str).tolist()))
+
+
+def unseen_mask(cfg: Config, table: Table, split: Splits, family: str | None) -> np.ndarray | None:
+    """Unseen attacks among TEST rows (held-out family or natural novel types); None in standard mode."""
+    mode = cfg.protocol.mode
+    if mode == "heldout_family" and family is not None:
+        return family_mask(cfg, table, family)[split.test]
+    if mode == "natural_novelty":
+        if table.raw_types is None:
+            raise DataError("natural novelty needs a type column")
+        return np.isin(table.raw_types[split.test].astype(str), cfg.protocol.novel_types)
+    return None
 
 
 class Provider:
@@ -185,17 +219,34 @@ def frozen_config(cfg: Config, sel: Selection) -> dict:
 
 
 def run_seed(
-    cfg: Config, table: Table, seed: int, *, data_fps: dict, out_root: str, force: bool, n_jobs: int = 1
+    cfg: Config,
+    table: Table,
+    seed: int,
+    *,
+    data_fps: dict,
+    out_root: str,
+    force: bool,
+    n_jobs: int = 1,
+    family: str | None = None,
 ) -> dict:
     t0 = time.perf_counter()
-    split: Splits = make_splits(table, cfg.protocol, cfg.dataset.test_fraction, seed)
+    exclude = family_mask(cfg, table, family) if family is not None else None
+    split: Splits = make_splits(table, cfg.protocol, cfg.dataset.test_fraction, seed, exclude=exclude)
+    if cfg.protocol.mode == "natural_novelty":
+        if table.raw_types is None:
+            raise DataError("natural novelty needs a type column")
+        train = np.concatenate([split.fit_base, split.cal, split.val])
+        seen = sorted(set(table.raw_types[train].astype(str).tolist()) & set(cfg.protocol.novel_types))
+        if seen:
+            raise DataError(f"novel types {seen} occur in the train partition; they are not test-only")
     fps = {
         "config": cfg.fingerprint(),
         "data": data_fps,
         "split": split.fingerprint(table.row_id),
         "package_version": __version__,
+        "family": family,
     }
-    d = unit_dir(out_root, cfg, seed)
+    d = unit_dir(out_root, cfg, seed, family)
     done = os.path.join(d, "DONE")
     if not force and os.path.isfile(done):
         try:
@@ -206,7 +257,7 @@ def run_seed(
         if same:
             try:
                 with open(os.path.join(d, "summary.json"), encoding="utf-8") as g:
-                    return {"seed": seed, "skipped": True, "summary": json.load(g)}
+                    return {"seed": seed, "family": family, "skipped": True, "summary": json.load(g)}
             except (OSError, ValueError):
                 pass  # summary missing or unreadable: run the seed again
     os.makedirs(d, exist_ok=True)
@@ -246,6 +297,7 @@ def run_seed(
         first_train_share=first_fit.prior_share,
         seed=seed,
         types_test=types_test,
+        unseen=unseen_mask(cfg, table, split, family),  # built after the freeze, from TEST types
     )
 
     active = active_scores(test_scores, sel.state)
@@ -288,6 +340,7 @@ def run_seed(
         "config_fingerprint": fps["config"],
         "mode": cfg.protocol.mode,
         "seed": seed,
+        "family": family,
         "split_sizes": {k: len(getattr(split, k)) for k in ("fit_base", "cal", "val", "test")},
         "split_log": split.log,
         "data_notes": table.notes,
@@ -308,7 +361,7 @@ def run_seed(
         done,
         {"fingerprints": fps, "finished": datetime.datetime.now(datetime.timezone.utc).isoformat()},
     )
-    return {"seed": seed, "skipped": False, "summary": summary}
+    return {"seed": seed, "family": family, "skipped": False, "summary": summary}
 
 
 def run(
@@ -320,21 +373,37 @@ def run(
     force: bool = False,
     data_fps: dict[str, str] | None = None,
 ) -> list[dict]:
-    """Run every seed of ``cfg``; finished units with matching fingerprints are skipped."""
+    """Run every unit of ``cfg`` (a seed, or a seed and a held-out family); finished units with
+    matching fingerprints are skipped."""
     table = load_table(cfg)
-    check_against_data(cfg, None if table.types is None else set(np.unique(table.types).astype(str).tolist()))
+
+    def values(t: np.ndarray | None) -> set[str] | None:
+        return None if t is None else set(np.unique(t).astype(str).tolist())
+
+    check_against_data(cfg, values(table.types), values(table.raw_types))
     data_fps = data_fps if data_fps is not None else data_fingerprints(cfg)
     use = list(dict.fromkeys(seeds if seeds is not None else cfg.protocol.seeds))  # each seed once
-    if jobs == 1 or len(use) == 1:
+    fams: list[str | None] = list(families(cfg, table)) if cfg.protocol.mode == "heldout_family" else [None]
+    units = [(s, f) for s in use for f in fams]
+    if jobs == 1 or len(units) == 1:
         return [
             run_seed(
-                cfg, table, s, data_fps=data_fps, out_root=out_root, force=force, n_jobs=cfg.protocol.n_jobs
+                cfg,
+                table,
+                s,
+                data_fps=data_fps,
+                out_root=out_root,
+                force=force,
+                n_jobs=cfg.protocol.n_jobs,
+                family=f,
             )
-            for s in use
+            for s, f in units
         ]
-    # seeds run in parallel, so each seed fits its models single-threaded (no nested parallelism)
+    # units run in parallel, so each one fits its models single-threaded (no nested parallelism)
     results = Parallel(n_jobs=jobs)(
-        delayed(run_seed)(cfg, table, s, data_fps=data_fps, out_root=out_root, force=force, n_jobs=1)
-        for s in use
+        delayed(run_seed)(
+            cfg, table, s, data_fps=data_fps, out_root=out_root, force=force, n_jobs=1, family=f
+        )
+        for s, f in units
     )
     return cast("list[dict]", list(results))  # run_seed always returns a dict; joblib's stubs allow None

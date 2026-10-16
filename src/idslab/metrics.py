@@ -277,3 +277,17 @@ def type_metrics(true: np.ndarray, recorded: np.ndarray, attack: np.ndarray) -> 
         "per_type": per,
         "share_recorded": {k: float((r == k).mean()) for k in sorted(set(r.tolist()) - set(labels))},
     }
+
+
+def unseen_metrics(y: np.ndarray, unseen: np.ndarray, pred: np.ndarray) -> dict:
+    """Recall on unseen attacks, recall on known attacks and benign FPR of one system."""
+    y = np.asarray(y).astype(bool)
+    u = np.asarray(unseen).astype(bool) & y
+    p = np.asarray(pred).astype(bool)
+    known = y & ~u
+    return {
+        "recall_unseen": float(p[u].mean()) if u.any() else None,
+        "recall_known": float(p[known].mean()) if known.any() else None,
+        "fpr_benign": float(p[~y].mean()) if (~y).any() else None,
+        "n_unseen": int(u.sum()),
+    }

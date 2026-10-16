@@ -5,10 +5,10 @@ the model at each stage and the routing between stages in one YAML file. IDSLab 
 chooses every model and threshold on validation data, freezes the design, and reports it on the test
 set next to controls that show whether the extra stages beat the first stage alone.
 
-Status: version 0.0.2. Classifier, type
+Status: version 0.0.3. Classifier, type
 (multiclass) and detector stages; upstream scores as features (out-of-fold); detectors fitted once or
-refitted on each batch; greedy selection on VAL; all binary controls plus type metrics; standard
-train/test mode.
+refitted on each batch; greedy selection on VAL; all binary controls plus type metrics; standard, held-out
+family (zero-day) and natural novelty modes.
 
 ## Install
 
@@ -41,6 +41,23 @@ idslab run demo/r1_router_gate.yaml --out demo/runs
   first stage at the cascade's VAL false-alarm rate, the frontier gap against the first stage's ROC
   curve, each stage switched off, additive prefix steps, a prevalence check and paired bootstrap
   intervals.
+
+## Unseen attacks
+
+Two modes test how a design copes with attacks it never saw:
+
+```yaml
+protocol:
+  mode: heldout_family        # each attack family in turn leaves training; TEST keeps it
+  families: [DoS, Worms]      # optional; default every attack family
+---
+protocol:
+  mode: natural_novelty       # TEST holds types that never occur in training
+  novel_types: [Zeroday]      # raw type names, checked against the train partition
+```
+
+The report then adds recall on the unseen attacks for the cascade and its controls, the benign false
+alarm rate, and the frontier gap on the benign and unseen flows.
 
 ## A config in brief
 
