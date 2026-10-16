@@ -13,7 +13,8 @@ from html import escape
 from idslab.config import TERMINALS, Config
 
 KIND_CLASS = {"classifier": "k-clf", "multiclass": "k-mc", "detector": "k-det"}
-NODE_W, NODE_H, COL, GAP = 190, 74, 250, 26
+NODE_W, NODE_H, COL, GAP = 236, 74, 316, 26
+CHIP_W, CHIP_H, CHIP_DROP = 92, 28, 66  # a route to BENIGN or ATTACK ends in a chip under its stage
 
 CSS = """
 :root { --bg:#f6f7f9; --surface:#fff; --fg:#16191d; --muted:#5a616c; --line:#d6dbe1;
@@ -72,23 +73,21 @@ def _layers(cfg: Config) -> dict[str, int]:
 
 
 def cascade_map(cfg: Config, agg: dict) -> str:
+    """Stages in columns by routing depth; routes to BENIGN and ATTACK end in chips under each
+    stage, so no edge crosses a node."""
     order = cfg.order()
     col = _layers(cfg)
-    last = max(col.values()) + 1
     rows: dict[int, list[str]] = {}
     for s in order:
         rows.setdefault(col[s], []).append(s)
-    height = max(len(v) for v in rows.values()) * (NODE_H + GAP) + 2 * GAP
-    height = max(height, 2 * (NODE_H + GAP) + 2 * GAP)
+    slot = NODE_H + CHIP_DROP + GAP
+    height = max(len(v) for v in rows.values()) * slot + GAP
     pos = {}
     for c, names in rows.items():
-        top = (height - len(names) * (NODE_H + GAP) + GAP) / 2
+        top = (height - len(names) * slot) / 2 + GAP / 2
         for i, s in enumerate(names):
-            pos[s] = (30 + c * COL, top + i * (NODE_H + GAP))
-    term_x = 30 + last * COL
-    pos["ATTACK"] = (term_x, height / 2 - NODE_H - GAP / 2)
-    pos["BENIGN"] = (term_x, height / 2 + GAP / 2)
-    width = term_x + NODE_W - 50
+            pos[s] = (30 + c * COL, top + i * slot)
+    width = 30 + max(col.values()) * COL + NODE_W + 30
     frozen = agg.get("frozen_per_seed", {})
     runs = max(len(frozen), 1)
     removal = agg.get("stage_removal", {})
@@ -104,19 +103,29 @@ def cascade_map(cfg: Config, agg: dict) -> str:
     ]
     for s in order:
         x, y = pos[s]
-        for out, t in cfg.stages[s].routes.items():
+        routes = list(cfg.stages[s].routes.items())
+        to_stage = [(o, t) for o, t in routes if t not in TERMINALS]
+        to_term = [(o, t) for o, t in routes if t in TERMINALS]
+        for i, (out, t) in enumerate(to_stage):
             tx, ty = pos[t]
-            ty_mid = ty + NODE_H / 2 if t not in TERMINALS else ty + 22
-            x1, y1, x2 = x + NODE_W, y + NODE_H / 2, tx - 4
+            x1, y1 = x + NODE_W, y + NODE_H * (i + 1) / (len(to_stage) + 1)
+            x2, y2 = tx - 4, ty + NODE_H / 2
             mid = (x1 + x2) / 2
             parts.append(
-                f'<path class="edge" d="M{x1:.0f},{y1:.0f} C{mid:.0f},{y1:.0f} {mid:.0f},{ty_mid:.0f} '
-                f'{x2:.0f},{ty_mid:.0f}" marker-end="url(#arr)"/>'
+                f'<path class="edge" d="M{x1:.0f},{y1:.0f} C{mid:.0f},{y1:.0f} {mid:.0f},{y2:.0f} '
+                f'{x2:.0f},{y2:.0f}" marker-end="url(#arr)"/>'
             )
-            parts.append(
-                f'<text class="elabel" x="{mid:.0f}" y="{(y1 + ty_mid) / 2 - 4:.0f}" text-anchor="middle">'
-                f"{escape(out)}</text>"
-            )
+            parts.append(f'<text class="elabel" x="{x1 + 6:.0f}" y="{y1 - 5:.0f}">{escape(out)}</text>')
+        for i, (out, t) in enumerate(to_term):
+            cx = x + NODE_W / 2 + (i - (len(to_term) - 1) / 2) * (CHIP_W + 14)
+            cy = y + NODE_H + CHIP_DROP - CHIP_H
+            cls = "term-a" if t == "ATTACK" else "term-b"
+            parts += [
+                f'<path class="edge" d="M{cx:.0f},{y + NODE_H:.0f} L{cx:.0f},{cy - 4:.0f}" marker-end="url(#arr)"/>',
+                f'<text class="elabel" x="{cx + 5:.0f}" y="{y + NODE_H + 18:.0f}">{escape(out)}</text>',
+                f'<rect class="{cls}" x="{cx - CHIP_W / 2:.0f}" y="{cy:.0f}" width="{CHIP_W}" height="{CHIP_H}" rx="14"/>',
+                f'<text x="{cx:.0f}" y="{cy + 18:.0f}" text-anchor="middle" font-weight="600" font-size="12">{t}</text>',
+            ]
     for s in order:
         st, (x, y) = cfg.stages[s], pos[s]
         on = sum(1 for fz in frozen.values() if not fz.get(s, {}).get("off", True))
@@ -137,12 +146,6 @@ def cascade_map(cfg: Config, agg: dict) -> str:
                 f"{': ' + escape(shown) if shown else ''}</text>"
             ),
             f'<text class="sub" x="{x + 10}" y="{y + 66:.0f}">effect when removed: {escape(_f(eff, 3))}</text>',
-        ]
-    for t, cls in (("ATTACK", "term-a"), ("BENIGN", "term-b")):
-        x, y = pos[t]
-        parts += [
-            f'<rect class="{cls}" x="{x}" y="{y:.0f}" width="120" height="44" rx="22"/>',
-            f'<text x="{x + 60}" y="{y + 27:.0f}" text-anchor="middle" font-weight="600">{t}</text>',
         ]
     parts.append("</svg>")
     return "\n".join(parts)

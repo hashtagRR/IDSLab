@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import datetime
 import json
+import logging
 import math
 import os
 import re
@@ -33,6 +34,8 @@ from idslab.features import FeatureStore, column_names
 from idslab.fitting import Fitted, fit_candidate, oof_scores
 from idslab.graph import PoolScorer, describe, paths
 from idslab.selection import Selection, active_scores, joint_check, select
+
+log = logging.getLogger("idslab")
 
 POOL_STATEMENT = (
     "Pool detectors are refitted on the whole batch of flows that reaches them, so their results assume "
@@ -142,11 +145,14 @@ class Provider:
         self.choice: dict[str, int] = {}
         self.test_filled: set[str] = set()
         self.family = family
+        self.unit = f"seed {seed}" + (f" family {family}" if family else "")
         self.split_fp = split.fingerprint(table.row_id)
 
     def _fit(self, s: str) -> list[Fitted]:
         if s not in self.fitted:
             st = self.cfg.stages[s]
+            n = len(st.candidates)
+            log.info("%s: fitting stage %s (%d candidate%s)", self.unit, s, n, "" if n == 1 else "s")
             self.fitted[s] = [
                 fit_candidate(
                     st,
@@ -334,8 +340,12 @@ def run_seed(
     y_val = table.y[split.val]
     types_val = None if table.types is None else table.types[split.val].astype(str)
 
+    unit = provider.unit
+    log.info("%s: started", unit)
     sel = select(cfg, provider, y_val, types_val)
     frozen = frozen_config(cfg, sel)
+    chosen = [f"{s} off" if f["off"] else f"{s} {f['candidate']} at {f['value']}" for s, f in frozen.items()]
+    log.info("%s: frozen on VAL: %s", unit, "; ".join(chosen))
     fitted, val_scores = provider.fitted, provider.val_scores
     joint = (
         joint_check(cfg, val_scores, sel, y_val, max_combos=cfg.protocol.joint_max)
@@ -357,6 +367,7 @@ def run_seed(
     if first_fit.prior_share is None:
         raise RuntimeError("the control first stage must be a classifier with a training prior")
     shares = {"FIT": float(table.y[split.fit].mean()), "VAL": float(y_val.mean())}
+    log.info("%s: evaluating on TEST", unit)
     controls, preds, routing = evaluate(
         cfg,
         sel,

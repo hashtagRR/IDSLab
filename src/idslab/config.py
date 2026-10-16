@@ -227,7 +227,10 @@ _Loader.add_implicit_resolver(
 
 
 def parse_yaml(text: str) -> Any:
-    return yaml.load(text, Loader=_Loader)  # noqa: S506  (_Loader is a SafeLoader subclass)
+    try:
+        return yaml.load(text, Loader=_Loader)  # noqa: S506  (_Loader is a SafeLoader subclass)
+    except yaml.YAMLError as e:
+        raise ConfigError(f"not valid YAML: {e}") from None
 
 
 def load(path: str) -> Config:

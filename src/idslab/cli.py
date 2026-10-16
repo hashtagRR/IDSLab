@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2026 hashtagRR
-"""Command line: idslab validate | run | report | example."""
+"""Command line: idslab validate | run | report | export-splits | example | dashboard."""
 
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import shutil
 import sys
@@ -12,7 +13,7 @@ from importlib import resources
 
 from idslab import __version__
 from idslab.adapters import ContractError
-from idslab.config import ConfigError, load
+from idslab.config import Config, ConfigError, load
 from idslab.data import DataError
 from idslab.fitting import FitError
 from idslab.report import write_report
@@ -22,18 +23,22 @@ from idslab.synthetic import write_example
 EXAMPLES = ("r1_router_gate.yaml", "r2_anomaly_first.yaml", "r1_four_layer.yaml")
 
 
-def _validate(args: argparse.Namespace) -> int:
-    cfg = load(args.config)
-    print(f"{args.config}: valid")
-    print(f"  stages in selection order: {' > '.join(cfg.order())}")
+def validation_text(path: str, cfg: Config) -> str:
+    """What ``idslab validate`` prints for a valid config (the dashboard shows the same lines)."""
+    lines = [f"{path}: valid", f"  stages in selection order: {' > '.join(cfg.order())}"]
     for name in cfg.order():
         st = cfg.stages[name]
         tune = "chosen on VAL" if st.decision.tunable else "fixed"
         cands = ", ".join(c.label for c in st.candidates)
-        print(
+        lines.append(
             f"  {name}: {st.kind}, {st.decision.mode} {list(st.decision.values)} ({tune}), candidates {cands}"
         )
-    print(f"  controls compare against: {cfg.controls.first_stage}; seeds {list(cfg.protocol.seeds)}")
+    lines.append(f"  controls compare against: {cfg.controls.first_stage}; seeds {list(cfg.protocol.seeds)}")
+    return "\n".join(lines)
+
+
+def _validate(args: argparse.Namespace) -> int:
+    print(validation_text(args.config, load(args.config)))
     return 0
 
 
@@ -94,6 +99,30 @@ def _example(args: argparse.Namespace) -> int:
     return 0
 
 
+def _dashboard(args: argparse.Namespace) -> int:
+    from idslab.dashboard.server import App, make_server  # noqa: PLC0415  (only this command needs it)
+
+    app = App(args.workspace)
+    server = make_server(args.host, args.port, app)
+    host, port = server.server_address[:2]
+    url = f"http://{'127.0.0.1' if host in ('0.0.0.0', '::') else host}:{port}/"  # noqa: S104
+    print(f"IDSLab dashboard for {app.ws.root} at {url} (Ctrl+C to stop)", flush=True)
+    if args.host not in ("127.0.0.1", "localhost", "::1"):
+        print("warning: the dashboard runs commands and has no login; keep it on a trusted network")
+    if args.open:
+        import webbrowser  # noqa: PLC0415
+
+        webbrowser.open(url)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        app.job.stop()
+        server.server_close()
+    return 0
+
+
 def _jobs(text: str) -> int:
     v = int(text)
     if v == 0 or v < -1:
@@ -136,14 +165,28 @@ def build_parser() -> argparse.ArgumentParser:
     e.add_argument("directory")
     e.add_argument("--overwrite", action="store_true")
     e.set_defaults(func=_example)
+
+    d = sub.add_parser("dashboard", help="open the web dashboard over a workspace folder")
+    d.add_argument("--workspace", default=".", help="folder with configs, data and runs (default: .)")
+    d.add_argument("--host", default="127.0.0.1", help="address to bind (default: 127.0.0.1)")
+    d.add_argument("--port", type=int, default=8765, help="port (default 8765, 0 = any free port)")
+    d.add_argument("--open", action="store_true", help="open the page in the default browser")
+    d.set_defaults(func=_dashboard)
     return p
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if args.command in ("run", "export-splits"):  # progress lines on stderr; results stay on stdout
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(asctime)s %(message)s", "%H:%M:%S"))
+        log = logging.getLogger("idslab")
+        if not log.handlers:  # main() can run more than once in a process (tests)
+            log.addHandler(handler)
+        log.setLevel(logging.INFO)
     try:
         return int(args.func(args))
-    except (ConfigError, DataError, FitError, ContractError, ImportError, FileNotFoundError) as e:
+    except (ConfigError, DataError, FitError, ContractError, ImportError, OSError) as e:
         print(f"idslab: {e}", file=sys.stderr)
         return 2
     except (ValueError, RuntimeError, IndexError) as e:

@@ -5,12 +5,12 @@ the model at each stage and the routing between stages in one YAML file. IDSLab 
 chooses every model and threshold on validation data, freezes the design, and reports it on the test
 set next to controls that show whether the extra stages beat the first stage alone.
 
-Status: version 0.0.5. Classifier, type
+Status: version 0.0.6. Classifier, type
 (multiclass) and detector stages; upstream scores as features (out-of-fold); detectors fitted once or
 refitted on each batch; greedy selection on VAL; all binary controls plus type metrics; standard, held-out
 family (zero-day) and natural novelty modes; scores made elsewhere (for example a CNN trained on a
 GPU) with provenance checks; a joint search check on greedy selection; PyTorch models; Markdown, JSON
-and HTML reports.
+and HTML reports; a local web dashboard.
 
 ## Install
 
@@ -34,6 +34,19 @@ idslab run demo/r1_router_gate.yaml --out demo/runs
 the cascade). Each seed also writes `summary.json`
 (selected configuration, selection trace, controls), `per_flow.parquet`, `val_flow.parquet` and
 `split_ids.parquet`.
+
+## Dashboard
+
+```bash
+idslab dashboard --workspace demo --open    # http://127.0.0.1:8765/
+```
+
+A local web page over one workspace folder. Everything the CLI does is there: validate and edit
+configs (with a live cascade preview), run, rebuild reports, export splits and write the example
+data. Commands run as the CLI in the background, one at a time, with a live log and a stop button,
+so a run started in the browser and one started in a shell resume each other. Results open as
+headline figures and charts, per-unit selection traces and the full report page. The server binds
+to 127.0.0.1, reads and writes only inside the workspace, and refuses requests from other sites.
 
 ## What every run guarantees
 
