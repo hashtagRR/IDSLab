@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="724" viewBox="0 0 1100 724" role="img" aria-label="Greedy selection on VAL for the R1 example, seed 0"><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#8c959f"/></marker></defs><rect width="100%" height="100%" fill="#ffffff"/><text x="48.0" y="50.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#0969da" text-anchor="start" letter-spacing="1.5">GREEDY SELECTION ON VAL</text>
+<text x="48.0" y="88.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="30" font-weight="700" fill="#1f2328" text-anchor="start">One stage at a time, later stages off</text>
+<text x="48.0" y="118.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">Synthetic R1 example, seed 0. Each option is scored by the VAL accuracy of the whole cascade.</text>
+<text x="48.0" y="170.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="17" font-weight="700" fill="#1f2328" text-anchor="start">binary</text>
+<text x="48.0" y="190.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#59636e" text-anchor="start">1200 VAL rows reach it. Fixed threshold; the candidate with the best VAL AUC is kept (RF 0.882, HGB 0.865).</text>
+<text x="346.0" y="219.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" fill="#1f2328" text-anchor="end">random forest, 0.5</text>
+<rect x="360.0" y="208.0" width="486.3" height="16.0" rx="3" fill="#0969da" stroke="none" stroke-width="1"/>
+<text x="854.3" y="220.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#0969da" text-anchor="start">0.8267  chosen</text>
+<line x1="48.0" y1="238.0" x2="1052.0" y2="238.0" stroke="#d0d7de" stroke-width="1"/>
+<text x="48.0" y="266.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="17" font-weight="700" fill="#1f2328" text-anchor="start">router</text>
+<text x="48.0" y="286.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#59636e" text-anchor="start">363 VAL rows reach it. Cutoff chosen on VAL; off is the first option.</text>
+<text x="346.0" y="315.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#1f2328" text-anchor="end">off</text>
+<rect x="360.0" y="304.0" width="486.3" height="16.0" rx="3" fill="#8c959f" stroke="none" stroke-width="1"/>
+<text x="854.3" y="316.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#59636e" text-anchor="start">0.8267</text>
+<text x="346.0" y="341.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#1f2328" text-anchor="end">random forest, 0.5</text>
+<rect x="360.0" y="330.0" width="553.1" height="16.0" rx="3" fill="#afb8c1" stroke="none" stroke-width="1"/>
+<text x="921.1" y="342.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#59636e" text-anchor="start">0.8358</text>
+<text x="346.0" y="367.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" fill="#1f2328" text-anchor="end">random forest, 0.6</text>
+<rect x="360.0" y="356.0" width="565.3" height="16.0" rx="3" fill="#0969da" stroke="none" stroke-width="1"/>
+<text x="933.3" y="368.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#0969da" text-anchor="start">0.8375  chosen</text>
+<text x="346.0" y="393.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#1f2328" text-anchor="end">random forest, 0.7</text>
+<rect x="360.0" y="382.0" width="541.0" height="16.0" rx="3" fill="#afb8c1" stroke="none" stroke-width="1"/>
+<text x="909.0" y="394.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#59636e" text-anchor="start">0.8342</text>
+<text x="346.0" y="419.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#1f2328" text-anchor="end">random forest, 0.8</text>
+<rect x="360.0" y="408.0" width="419.4" height="16.0" rx="3" fill="#afb8c1" stroke="none" stroke-width="1"/>
+<text x="787.4" y="420.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#59636e" text-anchor="start">0.8175</text>
+<text x="346.0" y="445.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#1f2328" text-anchor="end">random forest, 0.9</text>
+<rect x="360.0" y="434.0" width="97.3" height="16.0" rx="3" fill="#afb8c1" stroke="none" stroke-width="1"/>
+<text x="465.3" y="446.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#59636e" text-anchor="start">0.7733</text>
+<line x1="48.0" y1="464.0" x2="1052.0" y2="464.0" stroke="#d0d7de" stroke-width="1"/>
+<text x="48.0" y="492.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="17" font-weight="700" fill="#1f2328" text-anchor="start">gate</text>
+<text x="48.0" y="512.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#59636e" text-anchor="start">53 VAL rows reach it. Candidate and budget chosen together; ties go to off, then to the first value.</text>
+<text x="346.0" y="541.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#1f2328" text-anchor="end">off</text>
+<rect x="360.0" y="530.0" width="565.3" height="16.0" rx="3" fill="#8c959f" stroke="none" stroke-width="1"/>
+<text x="933.3" y="542.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#59636e" text-anchor="start">0.8375</text>
+<text x="346.0" y="567.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" fill="#1f2328" text-anchor="end">isolation forest, 0.01</text>
+<rect x="360.0" y="556.0" width="571.4" height="16.0" rx="3" fill="#0969da" stroke="none" stroke-width="1"/>
+<text x="939.4" y="568.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#0969da" text-anchor="start">0.8383  chosen</text>
+<text x="346.0" y="593.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#1f2328" text-anchor="end">local outlier factor, 0.01</text>
+<rect x="360.0" y="582.0" width="565.3" height="16.0" rx="3" fill="#afb8c1" stroke="none" stroke-width="1"/>
+<text x="933.3" y="594.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#59636e" text-anchor="start">0.8375</text>
+<text x="346.0" y="619.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#1f2328" text-anchor="end">isolation forest, 0.02</text>
+<rect x="360.0" y="608.0" width="571.4" height="16.0" rx="3" fill="#afb8c1" stroke="none" stroke-width="1"/>
+<text x="939.4" y="620.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#59636e" text-anchor="start">0.8383</text>
+<text x="346.0" y="645.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#1f2328" text-anchor="end">local outlier factor, 0.02</text>
+<rect x="360.0" y="634.0" width="565.3" height="16.0" rx="3" fill="#afb8c1" stroke="none" stroke-width="1"/>
+<text x="933.3" y="646.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#59636e" text-anchor="start">0.8375</text>
+<text x="346.0" y="671.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#1f2328" text-anchor="end">isolation forest, 0.05</text>
+<rect x="360.0" y="660.0" width="565.3" height="16.0" rx="3" fill="#afb8c1" stroke="none" stroke-width="1"/>
+<text x="933.3" y="672.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#59636e" text-anchor="start">0.8375</text>
+<text x="346.0" y="697.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#1f2328" text-anchor="end">local outlier factor, 0.05</text>
+<rect x="360.0" y="686.0" width="565.3" height="16.0" rx="3" fill="#afb8c1" stroke="none" stroke-width="1"/>
+<text x="933.3" y="698.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#59636e" text-anchor="start">0.8375</text>
+<line x1="48.0" y1="716.0" x2="1052.0" y2="716.0" stroke="#d0d7de" stroke-width="1"/></svg>

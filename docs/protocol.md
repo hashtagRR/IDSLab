@@ -6,6 +6,8 @@ what each reported number means.
 
 ## Splits
 
+![Splits per seed](img/splits.svg)
+
 For each seed:
 
 | Split    | Taken from                      | Used for                                                    |
@@ -35,6 +37,8 @@ training row's feature comes from a model that saw that row. VAL and TEST rows g
 model's score. The out-of-fold refits reuse the hyperparameters the source's search found.
 
 ## Selection: greedy forward selection
+
+![Greedy selection on VAL for the R1 example](img/selection.svg)
 
 Stages are visited in order: a topological order of the routes and score dependencies from the entry
 stage, ties in config order. For each stage:
@@ -77,6 +81,8 @@ benign and attack flows separately (`controls.bootstrap` replicates). The interv
 sample uncertainty for the fitted system; seed variation is reported separately as the standard
 deviation over seeds. A report line "CI above 0 in 2 of 3 units" counts the seeds whose interval
 excludes zero on the positive side.
+
+![Frontier gap for the R1 example](img/frontier-gap.svg)
 
 **Frontier gap.** The cascade's true positive rate minus the first stage's at the cascade's false
 positive rate, read from the first stage's TEST ROC curve. The interpolated value uses the curve's

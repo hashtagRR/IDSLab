@@ -1,98 +1,66 @@
 # IDSLab
 
-IDSLab evaluates staged (cascade) intrusion detection systems. You describe the dataset, the stages,
-the model at each stage and the routing between stages in one YAML file. IDSLab fits the stages,
-chooses every model and threshold on validation data, freezes the design, and reports it on the test
-set next to controls that show whether the extra stages beat the first stage alone.
+[![tests](https://github.com/hashtagRR/IDSLab/actions/workflows/tests.yml/badge.svg)](https://github.com/hashtagRR/IDSLab/actions/workflows/tests.yml)
 
-- **Any design from a config**: classifier, type (multiclass) and anomaly detector stages, routed
-  into any acyclic graph; a stage's score can feed later stages as a feature.
-- **Any model**: scikit-learn style estimators, XGBoost, LightGBM, PyOD, PyTorch, your own adapter
-  class, or scores from a model trained elsewhere (for example a CNN on a GPU), checked against the
-  exported splits.
-- **One fixed protocol**: TEST labels never touch fitting or selection; every stage chosen on VAL can
-  be switched off; the report always carries the controls.
-- **Unseen attacks**: held-out family and natural novelty modes report recall on attacks the design
-  never saw.
-- **Reports and a dashboard**: Markdown, JSON and a self-contained HTML page per experiment, and a
-  local web dashboard that runs every command.
+<p align="center">
+  <img src="https://raw.githubusercontent.com/hashtagRR/IDSLab/main/docs/img/idslab-overview.svg" width="100%"
+       alt="IDSLab overview in four steps. 1 Configure: data, stages, models and routes in one YAML file, run with idslab run. 2 Fit, then choose on VAL: splits FIT-base, CAL, VAL and a locked TEST; stages binary, router and gate; the router cutoff is chosen by the VAL accuracy of the whole cascade, with off as an option. 3 TEST after the freeze: the cascade against three versions of its first stage alone, plus the controls. 4 Report: cascade minus first stage and frontier gap; on the synthetic example the cascade ends below its first stage, and the report says so.">
+</p>
 
-## Install
+A config-driven framework for evaluating staged (cascade) network intrusion detection systems.
+Describe the dataset, the stages, the model at each stage and the routes between them in one YAML
+file; IDSLab fits the stages, chooses every model and threshold on validation data, freezes the
+design, and reports it on the test set next to controls built from its own first stage, so you see
+whether the extra stages earn their place.
+
+## Quickstart
 
 ```bash
-pip install idslab                       # Python 3.10 or newer
-pip install "idslab[xgboost,pyod,torch]" # optional model libraries
+python3 -m venv .venv && .venv/bin/pip install -e .
+.venv/bin/idslab example demo                                  # synthetic data, three reference designs
+.venv/bin/idslab run demo/r1_router_gate.yaml --out demo/runs  # fit, choose on VAL, report on TEST
+.venv/bin/idslab dashboard --workspace demo --open             # optional web UI
 ```
 
-From a clone: `pip install -e ".[dev]"`.
+<p align="center">
+  <img src="https://raw.githubusercontent.com/hashtagRR/IDSLab/main/docs/img/dashboard-run.png" width="90%"
+       alt="The IDSLab dashboard showing one experiment: headline figures, a systems chart, cascade minus each control, stage effects and the frozen cascade of seed 0.">
+</p>
 
-## Quick start
-
-```bash
-idslab example demo                                   # synthetic data and three reference designs
-idslab validate demo/r1_router_gate.yaml              # check the config without reading data
-idslab run demo/r1_router_gate.yaml --out demo/runs   # fit, select on VAL, evaluate on TEST
-idslab dashboard --workspace demo --open              # the same in the browser
-```
-
-Open `demo/runs/r1-router-gate/report.html`. The headline answers the first question about any
-cascade: does it beat its first stage alone, and does it reach an operating point that moving the
-first stage's threshold cannot?
-
-## A config
-
-```yaml
-name: router-gate
-dataset: {train: data/train.parquet, test: data/test.parquet, label: label, type: attack_cat}
-protocol: {seeds: [0, 1, 2], objective: accuracy}
-entry: binary
-stages:
-  binary:
-    kind: classifier
-    calibrate: sigmoid
-    pipeline: [{class: idslab.prep.Encode, params: {categorical: [proto, service]}}]
-    candidates:
-      - class: sklearn.ensemble.RandomForestClassifier
-        search: {space: {max_depth: [8, 16, null]}, n_iter: 3, cv: 3}
-      - class: xgboost.XGBClassifier
-    decision: {threshold: 0.5, off: benign}
-    routes: {attack: ATTACK, benign: gate}        # the gate re-checks what the classifier lets through
-  gate:
-    kind: detector
-    fit_on: benign
-    pipeline: [{class: idslab.prep.Encode, params: {categorical: [proto, service]}}]
-    candidates: [{class: sklearn.ensemble.IsolationForest}]
-    decision: {budget: [0.01, 0.02, 0.05], off: normal}   # chosen on VAL, with "off" as an option
-    routes: {anomalous: ATTACK, normal: BENIGN}
-```
-
-## What every run reports
-
-- The cascade and three versions of its first stage alone on TEST: at its own threshold, at its best
-  VAL cutoff, and at the cascade's false alarm rate.
-- Paired bootstrap intervals of cascade minus each control, and the spread over seeds.
-- The frontier gap: the cascade's detection rate minus the best the first stage reaches at the same
-  false alarm rate by threshold choice alone.
-- The effect of switching each stage off, and the step each stage adds in order.
-- The configuration chosen on VAL and the full selection trace, per seed.
+Optional model libraries (XGBoost, LightGBM, PyOD, imbalanced-learn, PyTorch), Windows and
+troubleshooting: [INSTALL.md](https://github.com/hashtagRR/IDSLab/blob/main/INSTALL.md).
 
 ## Documentation
 
-[Getting started](https://github.com/hashtagRR/IDSLab/blob/main/docs/getting-started.md) |
-[Config reference](https://github.com/hashtagRR/IDSLab/blob/main/docs/config-reference.md) |
-[Protocol and controls](https://github.com/hashtagRR/IDSLab/blob/main/docs/protocol.md) |
-[Models in stages](https://github.com/hashtagRR/IDSLab/blob/main/docs/models.md) |
-[Outputs](https://github.com/hashtagRR/IDSLab/blob/main/docs/outputs.md) |
-[Command line](https://github.com/hashtagRR/IDSLab/blob/main/docs/cli.md) |
-[Dashboard](https://github.com/hashtagRR/IDSLab/blob/main/docs/dashboard.md) |
-[Design](https://github.com/hashtagRR/IDSLab/blob/main/DESIGN.md) |
-[Changes](https://github.com/hashtagRR/IDSLab/blob/main/CHANGELOG.md)
+| Guide | What it covers |
+|---|---|
+| [Getting started](https://github.com/hashtagRR/IDSLab/blob/main/docs/getting-started.md) | a first run on the synthetic data, reading the report, moving to your own data |
+| [Example designs](https://github.com/hashtagRR/IDSLab/blob/main/examples/README.md) | the three reference cascades with diagrams, a custom model adapter, an outside score job |
+| [Config reference](https://github.com/hashtagRR/IDSLab/blob/main/docs/config-reference.md) | every key of a config file, with defaults |
+| [Protocol and controls](https://github.com/hashtagRR/IDSLab/blob/main/docs/protocol.md) | splits, greedy selection on VAL, the controls and what each reported number means |
+| [Models in stages](https://github.com/hashtagRR/IDSLab/blob/main/docs/models.md) | score contracts, pipelines and search, PyTorch, your own adapter, scores from models trained elsewhere |
+| [Outputs](https://github.com/hashtagRR/IDSLab/blob/main/docs/outputs.md) | the report pages and every file a run writes |
+| [Command line](https://github.com/hashtagRR/IDSLab/blob/main/docs/cli.md) | `validate`, `run`, `report`, `export-splits`, `example`, `dashboard` |
+| [Dashboard](https://github.com/hashtagRR/IDSLab/blob/main/docs/dashboard.md) | the local web UI: pages, jobs, security ([source reference](https://github.com/hashtagRR/IDSLab/blob/main/src/idslab/dashboard/README.md)) |
+| [Architecture](https://github.com/hashtagRR/IDSLab/blob/main/docs/architecture.md) | what happens during a run, the modules, and where to extend |
+| [Known limitations](https://github.com/hashtagRR/IDSLab/blob/main/docs/limitations.md) | what the numbers do and do not show |
+| [Design notes](https://github.com/hashtagRR/IDSLab/blob/main/DESIGN.md) | the reasoning behind each protocol rule |
+| [Install guide](https://github.com/hashtagRR/IDSLab/blob/main/INSTALL.md) | platform setup, extras, tests and checks |
+| [Changelog](https://github.com/hashtagRR/IDSLab/blob/main/CHANGELOG.md) | what changed in each version |
+
+## Versions
+
+- **`v0.1.0`** (latest): first public release. Any acyclic cascade of classifier, type and
+  detector stages; greedy selection on VAL with an off option; first-stage controls, frontier gap
+  and paired bootstrap; held-out family and natural novelty modes; external scores with provenance
+  checks; Markdown, JSON and HTML reports; the web dashboard.
 
 ## Citing
 
-If you use IDSLab in published work, please cite it; [CITATION.cff](https://github.com/hashtagRR/IDSLab/blob/main/CITATION.cff) has the details
-(GitHub shows them under "Cite this repository").
+If you use IDSLab in published work, please cite the version you used;
+[CITATION.cff](https://github.com/hashtagRR/IDSLab/blob/main/CITATION.cff) has the details, and GitHub
+shows them under "Cite this repository".
 
 ## License
 
-GNU Affero General Public License v3.0 or later. See [LICENSE](https://github.com/hashtagRR/IDSLab/blob/main/LICENSE).
+AGPL-3.0-or-later. See [LICENSE](https://github.com/hashtagRR/IDSLab/blob/main/LICENSE).

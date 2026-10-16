@@ -13,6 +13,8 @@ runs/<name>/
     DONE
 ```
 
+![The report page of the R1 example](img/report-page.png)
+
 `<mode>` is `standard`, `heldout_family` or `natural_novelty`. The report pages and `report.json` are
 rewritten after every run (unless `--no-report`) and by `idslab report`.
 

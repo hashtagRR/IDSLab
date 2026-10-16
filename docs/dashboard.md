@@ -11,6 +11,8 @@ idslab dashboard --workspace demo --open
 | `--port`      | `8765`      | port; `0` picks a free one                                         |
 | `--open`      |             | open the page in the default browser                               |
 
+![A run in the dashboard](img/dashboard-run.png)
+
 The page works without a network connection and stores nothing outside the workspace (the theme
 choice and the last output folder per command are kept in the browser).
 
@@ -29,6 +31,8 @@ choice and the last output folder per command are kept in the browser).
 | Example data    | `idslab example` into a folder of the workspace                              |
 | Files           | read-only folder browser; text and report pages open in a tab, other files download |
 
+![The config editor with validation and the Run panel](img/dashboard-editor.png)
+
 Every command form shows the equivalent CLI line, for example
 `idslab run r1_router_gate.yaml --out runs --seeds 0 1 --jobs 2`.
 
@@ -43,6 +47,9 @@ also stops a running job.
 Commands read the config file on disk, so the editor asks you to save before starting one.
 
 ## Security
+
+The [source reference](../src/idslab/dashboard/README.md) lists the HTTP API and how each guard is
+implemented.
 
 The dashboard runs commands and has no login, so it is built for one user on one machine:
 

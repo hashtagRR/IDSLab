@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2026 hashtagRR
 include CHANGELOG.md CITATION.cff CONTRIBUTING.md DESIGN.md
-recursive-include docs *.md
-recursive-include examples *.py
+recursive-include docs *.md *.svg *.png *.py
+include INSTALL.md src/idslab/dashboard/README.md
+recursive-include examples *.py *.md
 global-exclude __pycache__ *.py[co]

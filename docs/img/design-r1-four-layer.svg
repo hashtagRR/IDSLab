@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="586" viewBox="0 0 1080 586" role="img" aria-label="Cascade map of the reference design r1-four-layer"><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#8c959f"/></marker></defs><rect width="100%" height="100%" fill="#ffffff"/><text x="48.0" y="50.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#0969da" text-anchor="start" letter-spacing="1.5">REFERENCE DESIGN</text>
+<text x="48.0" y="88.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="24" font-weight="700" fill="#1f2328" text-anchor="start">R1, four layers: router score feeds a type stage, gate refits per batch</text>
+<text x="48.0" y="118.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#59636e" text-anchor="start">r1-four-layer: stages in selection order binary, router, type, gate</text>
+<path d="M320,305 C360,305 360,305 401,305" fill="none" stroke="#8c959f" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="328.0" y="299.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#59636e" text-anchor="start">attack</text>
+<line x1="184.0" y1="348.0" x2="184.0" y2="387.0" stroke="#8c959f" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="190.0" y="370.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#59636e" text-anchor="start">benign</text>
+<rect x="136.0" y="390.0" width="96.0" height="28.0" rx="14.0" fill="#dafbe1" stroke="#1a7f37" stroke-width="1"/>
+<text x="184.0" y="408.3" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#1a7f37" text-anchor="middle">BENIGN</text>
+<path d="M676,291 C716,291 716,210 757,210" fill="none" stroke="#8c959f" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="684.0" y="284.7" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#59636e" text-anchor="start">attack</text>
+<path d="M676,319 C716,319 716,400 757,400" fill="none" stroke="#8c959f" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="684.0" y="313.3" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#59636e" text-anchor="start">benign</text>
+<line x1="896.0" y1="253.0" x2="896.0" y2="292.0" stroke="#8c959f" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="902.0" y="275.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#59636e" text-anchor="start">next</text>
+<rect x="848.0" y="295.0" width="96.0" height="28.0" rx="14.0" fill="#ffebe9" stroke="#cf222e" stroke-width="1"/>
+<text x="896.0" y="313.3" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#cf222e" text-anchor="middle">ATTACK</text>
+<path d="M646,262 C646,137 790,137 790,164" fill="none" stroke="#bc4c00" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#arrow)"/>
+<text x="718.0" y="145.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#bc4c00" text-anchor="middle">score feeds</text>
+<line x1="840.0" y1="443.0" x2="840.0" y2="482.0" stroke="#8c959f" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="846.0" y="465.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#59636e" text-anchor="start">anomalous</text>
+<rect x="792.0" y="485.0" width="96.0" height="28.0" rx="14.0" fill="#ffebe9" stroke="#cf222e" stroke-width="1"/>
+<text x="840.0" y="503.3" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#cf222e" text-anchor="middle">ATTACK</text>
+<line x1="952.0" y1="443.0" x2="952.0" y2="482.0" stroke="#8c959f" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="958.0" y="465.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#59636e" text-anchor="start">normal</text>
+<rect x="904.0" y="485.0" width="96.0" height="28.0" rx="14.0" fill="#dafbe1" stroke="#1a7f37" stroke-width="1"/>
+<text x="952.0" y="503.3" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#1a7f37" text-anchor="middle">BENIGN</text>
+<rect x="48.0" y="262.0" width="272.0" height="86.0" rx="10" fill="#fff" stroke="#0969da" stroke-width="2.2"/>
+<rect x="48.0" y="272.0" width="4.0" height="66.0" rx="2" fill="#0969da" stroke="none" stroke-width="1"/>
+<text x="64.0" y="286.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#1f2328" text-anchor="start">binary  (entry)</text>
+<text x="64.0" y="306.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#0969da" text-anchor="start">classifier</text>
+<text x="64.0" y="322.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#59636e" text-anchor="start">threshold 0.5 (fixed)</text>
+<text x="64.0" y="338.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#59636e" text-anchor="start">RandomForest</text>
+<rect x="404.0" y="262.0" width="272.0" height="86.0" rx="10" fill="#fff" stroke="#0969da" stroke-width="1.4"/>
+<rect x="404.0" y="272.0" width="4.0" height="66.0" rx="2" fill="#0969da" stroke="none" stroke-width="1"/>
+<text x="420.0" y="286.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#1f2328" text-anchor="start">router</text>
+<text x="420.0" y="306.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#0969da" text-anchor="start">classifier</text>
+<text x="420.0" y="322.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#59636e" text-anchor="start">grid 0.5, 0.6, 0.7, 0.8 ... (chosen on VAL)</text>
+<text x="420.0" y="338.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#59636e" text-anchor="start">RandomForest</text>
+<rect x="760.0" y="167.0" width="272.0" height="86.0" rx="10" fill="#fff" stroke="#8250df" stroke-width="1.4"/>
+<rect x="760.0" y="177.0" width="4.0" height="66.0" rx="2" fill="#8250df" stroke="none" stroke-width="1"/>
+<text x="776.0" y="191.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#1f2328" text-anchor="start">type</text>
+<text x="776.0" y="211.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#8250df" text-anchor="start">multiclass, annotate</text>
+<text x="776.0" y="227.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#59636e" text-anchor="start">confidence 0, 0.2, 0.4 (chosen on VAL)</text>
+<text x="776.0" y="243.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#59636e" text-anchor="start">HistGradientBoosting</text>
+<rect x="760.0" y="357.0" width="272.0" height="86.0" rx="10" fill="#fff" stroke="#1b7c83" stroke-width="1.4"/>
+<rect x="760.0" y="367.0" width="4.0" height="66.0" rx="2" fill="#1b7c83" stroke="none" stroke-width="1"/>
+<text x="776.0" y="381.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#1f2328" text-anchor="start">gate</text>
+<text x="776.0" y="401.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1b7c83" text-anchor="start">pool detector</text>
+<text x="776.0" y="417.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#59636e" text-anchor="start">top_fraction 0.02, 0.05, 0.1 (chosen on VAL)</text>
+<text x="776.0" y="433.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#59636e" text-anchor="start">LocalOutlierFactor</text>
+<rect x="48.0" y="554.0" width="12.0" height="12.0" rx="3" fill="#0969da" stroke="none" stroke-width="1"/>
+<text x="66.0" y="564.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#59636e" text-anchor="start">classifier</text>
+<rect x="158.0" y="554.0" width="12.0" height="12.0" rx="3" fill="#1b7c83" stroke="none" stroke-width="1"/>
+<text x="176.0" y="564.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#59636e" text-anchor="start">detector</text>
+<rect x="268.0" y="554.0" width="12.0" height="12.0" rx="3" fill="#8250df" stroke="none" stroke-width="1"/>
+<text x="286.0" y="564.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#59636e" text-anchor="start">type stage</text></svg>

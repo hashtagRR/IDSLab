@@ -4,26 +4,11 @@ This page takes you from installation to a first report in about five minutes on
 
 ## Install
 
-IDSLab needs Python 3.10 or newer.
-
 ```bash
-pip install idslab                 # from PyPI, once released
-pip install -e .                   # or from a clone of the repository
+pip install idslab            # or, from a clone: pip install -e .
 ```
 
-Optional model libraries are extras:
-
-| Extra       | Installs          | Use it for                                                  |
-|-------------|-------------------|-------------------------------------------------------------|
-| `xgboost`   | xgboost           | `xgboost.XGBClassifier` in a stage                          |
-| `lightgbm`  | lightgbm          | `lightgbm.LGBMClassifier` in a stage                        |
-| `pyod`      | pyod              | PyOD detectors (`pyod.models.*`)                            |
-| `imbalance` | imbalanced-learn  | resampling steps such as `imblearn.over_sampling.SMOTE`     |
-| `torch`     | torch             | `idslab.torch_models.TorchMLPClassifier`, `TorchAutoencoder` |
-| `dev`       | pytest, ruff, ...  | running the test suite and the checks                      |
-
-`pip install "idslab[xgboost,torch]"` installs several at once. A config that names a class from a
-missing extra fails at load time with the install command in the message, before any data is read.
+Optional model libraries and platform notes: [INSTALL.md](../INSTALL.md).
 
 ## A first run
 
@@ -39,6 +24,10 @@ types Normal, DoS, Scan, Exploit and Worms) and three reference configs:
 | `r1_router_gate.yaml`   | entry classifier, a router with a cutoff chosen on VAL, a benign-trained anomaly gate |
 | `r2_anomaly_first.yaml` | anomaly detector first, then a classifier that can clear its alarms        |
 | `r1_four_layer.yaml`    | entry, router, a type stage that uses the router's score, a gate refitted on each batch |
+
+![R1 router gate](img/design-r1-router-gate.svg)
+
+[Example designs](../examples/README.md) shows all three.
 
 Check a config without reading any data:
 
@@ -67,7 +56,10 @@ stdout. Add `--jobs -1` to run the seeds in parallel on all cores.
 
 ## Reading the result
 
-Open `demo/runs/r1-router-gate/report.html` in a browser (or `report.md` in any editor). The first
+Open `demo/runs/r1-router-gate/report.html` in a browser (or `report.md` in any editor).
+
+![The report page](img/report-page.png)
+ The first
 lines answer the main question: does the cascade beat its first stage alone?
 
 - **cascade accuracy** and **first stage alone**: TEST objective, mean and standard deviation over

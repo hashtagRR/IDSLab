@@ -3,6 +3,13 @@
 Every version that can change results gets a new number: finished run units are reused only while
 the config, data and IDSLab version fingerprints match.
 
+## Unreleased
+
+- Documentation reorganised: a short README with an overview figure and a table of guides,
+  `INSTALL.md`, `docs/architecture.md`, `docs/limitations.md`, and mini READMEs for the example designs
+  and the dashboard source. Figures (overview, splits, selection, frontier gap, the three reference
+  designs) are drawn by `docs/img/make_figures.py`; dashboard and report screenshots added.
+
 ## 0.1.0 (2026-10-16)
 
 First public release.

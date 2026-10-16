@@ -1,0 +1,148 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="760" viewBox="0 0 1280 760" role="img" aria-label="IDSLab overview in four steps. 1 Configure: data, stages, models and routes in one YAML file, run with idslab run. 2 Fit, then choose on VAL: splits FIT-base, CAL, VAL and a locked TEST; stages binary, router and gate; the router cutoff is chosen by the VAL accuracy of the whole cascade, with off as an option. 3 TEST after the freeze: the cascade against three versions of its first stage alone, plus the controls. 4 Report: cascade minus first stage, frontier gap and stage use; on the synthetic example the cascade ends below its first stage, and the report says so."><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#8c959f"/></marker></defs><rect width="100%" height="100%" fill="#ffffff"/><text x="48.0" y="50.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#0969da" text-anchor="start" letter-spacing="1.5">IDSLAB</text>
+<text x="48.0" y="88.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="30" font-weight="700" fill="#1f2328" text-anchor="start">Does the cascade beat its own first stage?</text>
+<text x="48.0" y="118.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">Describe a staged IDS in one YAML file. IDSLab fits it, chooses every setting on validation data, and reports it on the test set next to its first stage alone.</text>
+<line x1="316.0" y1="414.0" x2="334.7" y2="414.0" stroke="#8c959f" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="646.7" y1="414.0" x2="665.3" y2="414.0" stroke="#8c959f" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="967.3" y1="414.0" x2="986.0" y2="414.0" stroke="#8c959f" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="48.0" y="168.0" width="262.0" height="492.0" rx="10" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1"/>
+<rect x="48.0" y="168.0" width="262.0" height="4.0" rx="2" fill="#8c959f" stroke="none" stroke-width="1"/>
+<circle cx="80.0" cy="202.0" r="11" fill="#8c959f" stroke="none" stroke-width="1"/>
+<text x="80.0" y="206.5" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">1</text>
+<text x="100.0" y="207.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#1f2328" text-anchor="start" letter-spacing="1.2">CONFIGURE</text>
+<text x="70.0" y="234.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#59636e" text-anchor="start">Data, stages, models and</text>
+<text x="70.0" y="253.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#59636e" text-anchor="start">routes in one YAML file.</text>
+<rect x="66.0" y="280.0" width="226.0" height="300.0" rx="6" fill="#fff" stroke="#d0d7de" stroke-width="1"/>
+<text x="76.0" y="298.0" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="11" font-weight="400" fill="#59636e" text-anchor="start">cfg.yaml</text>
+<line x1="66.0" y1="307.0" x2="292.0" y2="307.0" stroke="#d0d7de" stroke-width="1"/>
+<text x="76.0" y="326.0" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.6" xml:space="preserve"><tspan fill="#0969da">entry</tspan><tspan fill="#1f2328">: binary</tspan></text>
+<text x="76.0" y="343.2" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.6" xml:space="preserve"><tspan fill="#0969da">stages</tspan><tspan fill="#1f2328">:</tspan></text>
+<text x="76.0" y="360.4" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.6" xml:space="preserve"><tspan fill="#0969da">  binary</tspan><tspan fill="#1f2328">:</tspan></text>
+<text x="76.0" y="377.6" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.6" xml:space="preserve"><tspan fill="#0969da">    kind</tspan><tspan fill="#1f2328">: classifier</tspan></text>
+<text x="76.0" y="394.8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.6" xml:space="preserve"><tspan fill="#0969da">    decision</tspan><tspan fill="#1f2328">: {threshold: .5}</tspan></text>
+<text x="76.0" y="412.0" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.6" xml:space="preserve"><tspan fill="#0969da">    routes</tspan><tspan fill="#1f2328">: {attack: router,</tspan></text>
+<text x="76.0" y="429.2" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.6" xml:space="preserve"><tspan fill="#0969da"></tspan><tspan fill="#1f2328">             benign: BENIGN}</tspan></text>
+<text x="76.0" y="446.4" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.6" xml:space="preserve"><tspan fill="#0969da">  router</tspan><tspan fill="#1f2328">:</tspan></text>
+<text x="76.0" y="463.6" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.6" xml:space="preserve"><tspan fill="#0969da">    kind</tspan><tspan fill="#1f2328">: classifier</tspan></text>
+<text x="76.0" y="480.8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.6" xml:space="preserve"><tspan fill="#0969da">    decision</tspan><tspan fill="#1f2328">: {grid: [.5, .6, .7]}</tspan></text>
+<text x="76.0" y="498.0" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.6" xml:space="preserve"><tspan fill="#0969da">    routes</tspan><tspan fill="#1f2328">: {benign: gate, ...}</tspan></text>
+<text x="76.0" y="515.2" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.6" xml:space="preserve"><tspan fill="#0969da">  gate</tspan><tspan fill="#1f2328">:</tspan></text>
+<text x="76.0" y="532.4" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.6" xml:space="preserve"><tspan fill="#0969da">    kind</tspan><tspan fill="#1f2328">: detector</tspan></text>
+<text x="76.0" y="549.6" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.6" xml:space="preserve"><tspan fill="#0969da">    fit_on</tspan><tspan fill="#1f2328">: benign</tspan></text>
+<text x="76.0" y="566.8" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.6" xml:space="preserve"><tspan fill="#0969da">    decision</tspan><tspan fill="#1f2328">: {budget: [.01, .05]}</tspan></text>
+<rect x="66.0" y="598.0" width="226.0" height="36.0" rx="6" fill="#24292f" stroke="none" stroke-width="1"/>
+<text x="78.0" y="621.0" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="12.5" font-weight="400" fill="#f6f8fa" text-anchor="start">$ idslab run cfg.yaml</text>
+<rect x="340.7" y="168.0" width="300.0" height="492.0" rx="10" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1"/>
+<rect x="340.7" y="168.0" width="300.0" height="4.0" rx="2" fill="#0969da" stroke="none" stroke-width="1"/>
+<circle cx="372.7" cy="202.0" r="11" fill="#0969da" stroke="none" stroke-width="1"/>
+<text x="372.7" y="206.5" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">2</text>
+<text x="392.7" y="207.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#1f2328" text-anchor="start" letter-spacing="1.2">FIT, THEN CHOOSE ON VAL</text>
+<text x="362.7" y="234.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#59636e" text-anchor="start">Stages fit on their own rows. Settings</text>
+<text x="362.7" y="253.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#59636e" text-anchor="start">are chosen on VAL, one stage at a time,</text>
+<text x="362.7" y="272.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#59636e" text-anchor="start">with off always an option.</text>
+<rect x="362.7" y="306.0" width="120.9" height="22.0" rx="4" fill="#0969da" stroke="none" stroke-width="1"/>
+<text x="423.1" y="321.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" font-weight="700" fill="#fff" text-anchor="middle">FIT-base</text>
+<rect x="485.5" y="306.0" width="28.7" height="22.0" rx="4" fill="#8250df" stroke="none" stroke-width="1"/>
+<text x="499.9" y="321.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" font-weight="700" fill="#fff" text-anchor="middle">CAL</text>
+<rect x="516.3" y="306.0" width="36.4" height="22.0" rx="4" fill="#bc4c00" stroke="none" stroke-width="1"/>
+<text x="534.5" y="321.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" font-weight="700" fill="#fff" text-anchor="middle">VAL</text>
+<rect x="554.7" y="306.0" width="62.0" height="22.0" rx="4" fill="#8c959f" stroke="none" stroke-width="1"/>
+<text x="585.7" y="321.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" font-weight="700" fill="#fff" text-anchor="middle">TEST</text>
+<text x="362.7" y="346.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#59636e" text-anchor="start">TEST stays locked until every choice is frozen</text>
+<rect x="362.7" y="382.0" width="74.0" height="34.0" rx="7" fill="#fff" stroke="#0969da" stroke-width="1.6"/>
+<text x="399.7" y="404.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" fill="#1f2328" text-anchor="middle">binary</text>
+<line x1="438.7" y1="399.0" x2="449.7" y2="399.0" stroke="#8c959f" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="453.7" y="382.0" width="74.0" height="34.0" rx="7" fill="#fff" stroke="#0969da" stroke-width="1.6"/>
+<text x="490.7" y="404.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" fill="#1f2328" text-anchor="middle">router</text>
+<line x1="529.7" y1="399.0" x2="540.7" y2="399.0" stroke="#8c959f" stroke-width="1.5" marker-end="url(#arrow)"/>
+<rect x="544.7" y="382.0" width="74.0" height="34.0" rx="7" fill="#fff" stroke="#1b7c83" stroke-width="1.6"/>
+<text x="581.7" y="404.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" fill="#1f2328" text-anchor="middle">gate</text>
+<text x="362.7" y="448.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#1f2328" text-anchor="start">router cutoff: VAL accuracy of the</text>
+<text x="362.7" y="464.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#1f2328" text-anchor="start">whole cascade for each option</text>
+<rect x="367.7" y="501.7" width="32.7" height="86.3" rx="3" fill="#8c959f" stroke="none" stroke-width="1"/>
+<text x="384.0" y="496.7" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#59636e" text-anchor="middle">0.827</text>
+<text x="384.0" y="603.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#1f2328" text-anchor="middle">off</text>
+<rect x="410.3" y="489.9" width="32.7" height="98.1" rx="3" fill="#afb8c1" stroke="none" stroke-width="1"/>
+<text x="426.7" y="484.9" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#59636e" text-anchor="middle">0.836</text>
+<text x="426.7" y="603.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#1f2328" text-anchor="middle">0.5</text>
+<rect x="453.0" y="487.7" width="32.7" height="100.3" rx="3" fill="#0969da" stroke="none" stroke-width="1"/>
+<text x="469.3" y="482.7" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#59636e" text-anchor="middle">0.838</text>
+<text x="469.3" y="603.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="700" fill="#1f2328" text-anchor="middle">0.6</text>
+<rect x="495.7" y="492.0" width="32.7" height="96.0" rx="3" fill="#afb8c1" stroke="none" stroke-width="1"/>
+<text x="512.0" y="487.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#59636e" text-anchor="middle">0.834</text>
+<text x="512.0" y="603.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#1f2328" text-anchor="middle">0.7</text>
+<rect x="538.3" y="513.6" width="32.7" height="74.4" rx="3" fill="#afb8c1" stroke="none" stroke-width="1"/>
+<text x="554.7" y="508.6" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#59636e" text-anchor="middle">0.818</text>
+<text x="554.7" y="603.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#1f2328" text-anchor="middle">0.8</text>
+<rect x="581.0" y="570.7" width="32.7" height="17.3" rx="3" fill="#afb8c1" stroke="none" stroke-width="1"/>
+<text x="597.3" y="565.7" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#59636e" text-anchor="middle">0.773</text>
+<text x="597.3" y="603.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#1f2328" text-anchor="middle">0.9</text>
+<line x1="362.7" y1="588.0" x2="618.7" y2="588.0" stroke="#d0d7de" stroke-width="1"/>
+<text x="362.7" y="634.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#0969da" text-anchor="start">chosen: 0.6. Ties go to off.</text>
+<rect x="671.3" y="168.0" width="290.0" height="492.0" rx="10" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1"/>
+<rect x="671.3" y="168.0" width="290.0" height="4.0" rx="2" fill="#bc4c00" stroke="none" stroke-width="1"/>
+<circle cx="703.3" cy="202.0" r="11" fill="#bc4c00" stroke="none" stroke-width="1"/>
+<text x="703.3" y="206.5" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">3</text>
+<text x="723.3" y="207.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#1f2328" text-anchor="start" letter-spacing="1.2">TEST, AFTER THE FREEZE</text>
+<text x="693.3" y="234.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#59636e" text-anchor="start">The frozen cascade against its first</text>
+<text x="693.3" y="253.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#59636e" text-anchor="start">stage alone, all on the same fitted</text>
+<text x="693.3" y="272.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#59636e" text-anchor="start">first-stage model.</text>
+<text x="693.3" y="306.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#1f2328" text-anchor="start">TEST accuracy, mean of 3 seeds</text>
+<text x="693.3" y="333.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#1f2328" text-anchor="start">cascade</text>
+<rect x="693.3" y="338.0" width="108.0" height="9.0" rx="3" fill="#bc4c00" stroke="none" stroke-width="1"/>
+<text x="807.3" y="347.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#59636e" text-anchor="start">0.839</text>
+<text x="693.3" y="367.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#59636e" text-anchor="start">B1: first stage, own threshold</text>
+<rect x="693.3" y="372.0" width="133.3" height="9.0" rx="3" fill="#afb8c1" stroke="none" stroke-width="1"/>
+<text x="832.7" y="381.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#59636e" text-anchor="start">0.841</text>
+<text x="693.3" y="401.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#59636e" text-anchor="start">B2: first stage, best VAL cutoff</text>
+<rect x="693.3" y="406.0" width="98.7" height="9.0" rx="3" fill="#afb8c1" stroke="none" stroke-width="1"/>
+<text x="798.0" y="415.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#59636e" text-anchor="start">0.838</text>
+<text x="693.3" y="435.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#59636e" text-anchor="start">first stage at the cascade's VAL FPR</text>
+<rect x="693.3" y="440.0" width="105.3" height="9.0" rx="3" fill="#afb8c1" stroke="none" stroke-width="1"/>
+<text x="804.7" y="449.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#59636e" text-anchor="start">0.839</text>
+<text x="693.3" y="468.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="600" fill="#1f2328" text-anchor="start">Controls in every report</text>
+<circle cx="699.3" cy="488.0" r="4" fill="#bc4c00" stroke="none" stroke-width="1"/>
+<text x="711.3" y="492.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1f2328" text-anchor="start">paired bootstrap: cascade minus each control</text>
+<circle cx="699.3" cy="513.0" r="4" fill="#bc4c00" stroke="none" stroke-width="1"/>
+<text x="711.3" y="517.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1f2328" text-anchor="start">frontier gap against the first stage's ROC</text>
+<circle cx="699.3" cy="538.0" r="4" fill="#bc4c00" stroke="none" stroke-width="1"/>
+<text x="711.3" y="542.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1f2328" text-anchor="start">effect of switching each stage off</text>
+<circle cx="699.3" cy="563.0" r="4" fill="#bc4c00" stroke="none" stroke-width="1"/>
+<text x="711.3" y="567.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1f2328" text-anchor="start">step each stage adds, in order</text>
+<circle cx="699.3" cy="588.0" r="4" fill="#bc4c00" stroke="none" stroke-width="1"/>
+<text x="711.3" y="592.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1f2328" text-anchor="start">prevalence check, spread over seeds</text>
+<rect x="992.0" y="168.0" width="240.0" height="492.0" rx="10" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1"/>
+<rect x="992.0" y="168.0" width="240.0" height="4.0" rx="2" fill="#1a7f37" stroke="none" stroke-width="1"/>
+<circle cx="1024.0" cy="202.0" r="11" fill="#1a7f37" stroke="none" stroke-width="1"/>
+<text x="1024.0" y="206.5" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">4</text>
+<text x="1044.0" y="207.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#1f2328" text-anchor="start" letter-spacing="1.2">REPORT</text>
+<text x="1014.0" y="234.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#59636e" text-anchor="start">The answer first, then every</text>
+<text x="1014.0" y="253.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="13.5" font-weight="400" fill="#59636e" text-anchor="start">number behind it.</text>
+<rect x="1010.0" y="274.0" width="204.0" height="50.0" rx="8" fill="#fff" stroke="#d0d7de" stroke-width="1"/>
+<text x="1022.0" y="292.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#59636e" text-anchor="start">cascade accuracy</text>
+<text x="1022.0" y="315.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="18" font-weight="700" fill="#1f2328" text-anchor="start">0.8390</text>
+<rect x="1010.0" y="332.0" width="204.0" height="50.0" rx="8" fill="#fff" stroke="#d0d7de" stroke-width="1"/>
+<text x="1022.0" y="350.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#59636e" text-anchor="start">first stage alone (B1)</text>
+<text x="1022.0" y="373.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="18" font-weight="700" fill="#1f2328" text-anchor="start">0.8411</text>
+<rect x="1010.0" y="390.0" width="204.0" height="50.0" rx="8" fill="#fff" stroke="#d0d7de" stroke-width="1"/>
+<text x="1022.0" y="408.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#59636e" text-anchor="start">cascade minus first stage</text>
+<text x="1022.0" y="431.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="18" font-weight="700" fill="#cf222e" text-anchor="start">-0.0021</text>
+<rect x="1010.0" y="448.0" width="204.0" height="50.0" rx="8" fill="#fff" stroke="#d0d7de" stroke-width="1"/>
+<text x="1022.0" y="466.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#59636e" text-anchor="start">frontier gap</text>
+<text x="1022.0" y="489.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="18" font-weight="700" fill="#cf222e" text-anchor="start">-0.0066</text>
+<text x="1014.0" y="520.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#59636e" text-anchor="start">Synthetic example: router and gate</text>
+<text x="1014.0" y="538.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#59636e" text-anchor="start">improve VAL, yet the cascade ends</text>
+<text x="1014.0" y="556.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#59636e" text-anchor="start">below its first stage on TEST.</text>
+<text x="1014.0" y="574.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#59636e" text-anchor="start">The report says so.</text>
+<rect x="1008.0" y="596.0" width="66.0" height="24.0" rx="12.0" fill="#dafbe1" stroke="#1a7f37" stroke-width="1"/>
+<text x="1041.0" y="611.6" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="10" font-weight="600" fill="#1a7f37" text-anchor="middle">report.html</text>
+<rect x="1078.0" y="596.0" width="66.0" height="24.0" rx="12.0" fill="#dafbe1" stroke="#1a7f37" stroke-width="1"/>
+<text x="1111.0" y="611.6" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="10" font-weight="600" fill="#1a7f37" text-anchor="middle">report.md</text>
+<rect x="1148.0" y="596.0" width="66.0" height="24.0" rx="12.0" fill="#dafbe1" stroke="#1a7f37" stroke-width="1"/>
+<text x="1181.0" y="611.6" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="10" font-weight="600" fill="#1a7f37" text-anchor="middle">report.json</text>
+<text x="1014.0" y="640.0" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="12" font-weight="400" fill="#59636e" text-anchor="start">or: idslab dashboard</text>
+<rect x="48.0" y="688.0" width="580.0" height="44.0" rx="22" fill="#fff" stroke="#d0d7de" stroke-width="1"/>
+<text x="70.0" y="715.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#1f2328" text-anchor="start">Unseen attacks: </text>
+<text x="198.8" y="715.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#59636e" text-anchor="start">hold out each attack family, or test types never trained on</text>
+<rect x="652.0" y="688.0" width="580.0" height="44.0" rx="22" fill="#fff" stroke="#d0d7de" stroke-width="1"/>
+<text x="674.0" y="715.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#1f2328" text-anchor="start">Models trained elsewhere: </text>
+<text x="884.8" y="715.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#59636e" text-anchor="start">export splits, train on a GPU, import checked scores</text></svg>
