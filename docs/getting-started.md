@@ -1,0 +1,102 @@
+# Getting started
+
+This page takes you from installation to a first report in about five minutes on a laptop.
+
+## Install
+
+IDSLab needs Python 3.10 or newer.
+
+```bash
+pip install idslab                 # from PyPI, once released
+pip install -e .                   # or from a clone of the repository
+```
+
+Optional model libraries are extras:
+
+| Extra       | Installs          | Use it for                                                  |
+|-------------|-------------------|-------------------------------------------------------------|
+| `xgboost`   | xgboost           | `xgboost.XGBClassifier` in a stage                          |
+| `lightgbm`  | lightgbm          | `lightgbm.LGBMClassifier` in a stage                        |
+| `pyod`      | pyod              | PyOD detectors (`pyod.models.*`)                            |
+| `imbalance` | imbalanced-learn  | resampling steps such as `imblearn.over_sampling.SMOTE`     |
+| `torch`     | torch             | `idslab.torch_models.TorchMLPClassifier`, `TorchAutoencoder` |
+| `dev`       | pytest, ruff, ...  | running the test suite and the checks                      |
+
+`pip install "idslab[xgboost,torch]"` installs several at once. A config that names a class from a
+missing extra fails at load time with the install command in the message, before any data is read.
+
+## A first run
+
+```bash
+idslab example demo
+```
+
+This writes a synthetic flow dataset (`demo/data/train.parquet`, `demo/data/test.parquet`, with
+types Normal, DoS, Scan, Exploit and Worms) and three reference configs:
+
+| Config                  | Design                                                                     |
+|-------------------------|----------------------------------------------------------------------------|
+| `r1_router_gate.yaml`   | entry classifier, a router with a cutoff chosen on VAL, a benign-trained anomaly gate |
+| `r2_anomaly_first.yaml` | anomaly detector first, then a classifier that can clear its alarms        |
+| `r1_four_layer.yaml`    | entry, router, a type stage that uses the router's score, a gate refitted on each batch |
+
+Check a config without reading any data:
+
+```bash
+idslab validate demo/r1_router_gate.yaml
+```
+
+```text
+demo/r1_router_gate.yaml: valid
+  stages in selection order: binary > router > gate
+  binary: classifier, threshold [0.5] (fixed), candidates RandomForestClassifier#0, HistGradientBoostingClassifier#1
+  router: classifier, grid [0.5, 0.6, 0.7, 0.8, 0.9] (chosen on VAL), candidates RandomForestClassifier#0
+  gate: detector, budget [0.01, 0.02, 0.05] (chosen on VAL), candidates IsolationForest#0, LocalOutlierFactor#1
+  controls compare against: binary; seeds [0, 1, 2]
+```
+
+Run it:
+
+```bash
+idslab run demo/r1_router_gate.yaml --out demo/runs
+```
+
+Each seed takes under a minute on the synthetic data. Progress goes to stderr (stage fitted,
+configuration frozen on VAL, TEST evaluation); the result line per seed and the report path go to
+stdout. Add `--jobs -1` to run the seeds in parallel on all cores.
+
+## Reading the result
+
+Open `demo/runs/r1-router-gate/report.html` in a browser (or `report.md` in any editor). The first
+lines answer the main question: does the cascade beat its first stage alone?
+
+- **cascade accuracy** and **first stage alone**: TEST objective, mean and standard deviation over
+  seeds.
+- **cascade minus first stage**: the difference, with paired bootstrap intervals per seed further
+  down. A negative value means the extra stages cost accuracy on this data.
+- **frontier gap**: whether the cascade reaches an operating point that moving the first stage's
+  threshold cannot. Positive is evidence that the stages add something beyond a threshold change.
+
+The cascade map shows how often selection kept each stage on, the values it chose, and how much the
+objective drops when that stage is switched off. [Protocol and controls](protocol.md) explains every
+number; [Outputs](outputs.md) lists every file.
+
+## The same in the browser
+
+```bash
+idslab dashboard --workspace demo --open
+```
+
+The [dashboard](dashboard.md) lists the configs and runs in `demo`, edits and validates configs with
+a live cascade preview, starts runs with a live log, and shows results as charts and the full report.
+
+## Your own data
+
+1. Put your flows in Parquet or CSV: one row per flow, feature columns, and a binary label (0 benign,
+   1 attack), an attack type column, or both.
+2. Copy a reference config next to the data and change `dataset` (file paths are relative to the
+   config file) and the categorical columns listed for `idslab.prep.Encode`.
+3. `idslab validate`, then `idslab run`.
+
+The [config reference](config-reference.md) lists every key. Large datasets: start with
+`protocol.subsample: {train: 50000}` and one seed to check the design, then remove the subsample.

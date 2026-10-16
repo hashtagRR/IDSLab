@@ -1,0 +1,16 @@
+cff-version: 1.2.0
+message: "If you use IDSLab, please cite it as below."
+title: "IDSLab: an evaluation framework for staged intrusion detection systems"
+type: software
+authors:
+  - alias: hashtagRR
+version: 0.1.0
+date-released: "2026-10-16"
+license: AGPL-3.0-or-later
+repository-code: "https://github.com/hashtagRR/IDSLab"
+keywords:
+  - intrusion detection
+  - cascade
+  - evaluation
+  - machine learning
+  - network security

@@ -5,120 +5,94 @@ the model at each stage and the routing between stages in one YAML file. IDSLab 
 chooses every model and threshold on validation data, freezes the design, and reports it on the test
 set next to controls that show whether the extra stages beat the first stage alone.
 
-Status: version 0.0.6. Classifier, type
-(multiclass) and detector stages; upstream scores as features (out-of-fold); detectors fitted once or
-refitted on each batch; greedy selection on VAL; all binary controls plus type metrics; standard, held-out
-family (zero-day) and natural novelty modes; scores made elsewhere (for example a CNN trained on a
-GPU) with provenance checks; a joint search check on greedy selection; PyTorch models; Markdown, JSON
-and HTML reports; a local web dashboard.
+- **Any design from a config**: classifier, type (multiclass) and anomaly detector stages, routed
+  into any acyclic graph; a stage's score can feed later stages as a feature.
+- **Any model**: scikit-learn style estimators, XGBoost, LightGBM, PyOD, PyTorch, your own adapter
+  class, or scores from a model trained elsewhere (for example a CNN on a GPU), checked against the
+  exported splits.
+- **One fixed protocol**: TEST labels never touch fitting or selection; every stage chosen on VAL can
+  be switched off; the report always carries the controls.
+- **Unseen attacks**: held-out family and natural novelty modes report recall on attacks the design
+  never saw.
+- **Reports and a dashboard**: Markdown, JSON and a self-contained HTML page per experiment, and a
+  local web dashboard that runs every command.
 
 ## Install
 
 ```bash
-pip install -e .            # from a clone; Python 3.10 or newer
-pip install -e ".[dev]"     # with the test and check tools
+pip install idslab                       # Python 3.10 or newer
+pip install "idslab[xgboost,pyod,torch]" # optional model libraries
 ```
 
-Optional model libraries: `pip install -e ".[xgboost]"`, `".[lightgbm]"`, `".[pyod]"`, `".[imbalance]"`,
-`".[torch]"` (for `idslab.torch_models.TorchMLPClassifier` and `TorchAutoencoder`).
+From a clone: `pip install -e ".[dev]"`.
 
 ## Quick start
 
 ```bash
-idslab example demo                         # synthetic data and three reference configs
-idslab validate demo/r1_router_gate.yaml    # checks the config without reading data
-idslab run demo/r1_router_gate.yaml --out demo/runs
+idslab example demo                                   # synthetic data and three reference designs
+idslab validate demo/r1_router_gate.yaml              # check the config without reading data
+idslab run demo/r1_router_gate.yaml --out demo/runs   # fit, select on VAL, evaluate on TEST
+idslab dashboard --workspace demo --open              # the same in the browser
 ```
 
-`demo/runs/r1-router-gate/report.md` and `report.html` hold the result (the HTML page adds a map of
-the cascade). Each seed also writes `summary.json`
-(selected configuration, selection trace, controls), `per_flow.parquet`, `val_flow.parquet` and
-`split_ids.parquet`.
+Open `demo/runs/r1-router-gate/report.html`. The headline answers the first question about any
+cascade: does it beat its first stage alone, and does it reach an operating point that moving the
+first stage's threshold cannot?
 
-## Dashboard
-
-```bash
-idslab dashboard --workspace demo --open    # http://127.0.0.1:8765/
-```
-
-A local web page over one workspace folder. Everything the CLI does is there: validate and edit
-configs (with a live cascade preview), run, rebuild reports, export splits and write the example
-data. Commands run as the CLI in the background, one at a time, with a live log and a stop button,
-so a run started in the browser and one started in a shell resume each other. Results open as
-headline figures and charts, per-unit selection traces and the full report page. The server binds
-to 127.0.0.1, reads and writes only inside the workspace, and refuses requests from other sites.
-
-## What every run guarantees
-
-- Splits per seed: FIT-base and CAL (calibration only) inside FIT, VAL for every choice, TEST last.
-- TEST labels never influence fitting, selection or any configuration choice; the test suite checks
-  this by shuffling TEST labels and requiring an identical selection.
-- Every stage chosen on VAL has an "off" option, and ties go to off.
-- Controls in every report: the first stage alone (its own threshold and the best VAL cutoff), the
-  first stage at the cascade's VAL false-alarm rate, the frontier gap against the first stage's ROC
-  curve, each stage switched off, additive prefix steps, a prevalence check and paired bootstrap
-  intervals.
-
-## Unseen attacks
-
-Two modes test how a design copes with attacks it never saw:
+## A config
 
 ```yaml
-protocol:
-  mode: heldout_family        # each attack family in turn leaves training; TEST keeps it
-  families: [DoS, Worms]      # optional; default every attack family
----
-protocol:
-  mode: natural_novelty       # TEST holds types that never occur in training
-  novel_types: [Zeroday]      # raw type names, checked against the train partition
-```
-
-The report then adds recall on the unseen attacks for the cascade and its controls, the benign false
-alarm rate, and the frontier gap on the benign and unseen flows.
-
-## Models trained elsewhere
-
-```bash
-idslab export-splits config.yaml --out splits   # row ids, folds and a fingerprint per run unit
-```
-
-Train on exactly the exported rows, then write one Parquet score file per unit with columns `row_id`,
-`split`, `score_kind` (`oof` or `fitted`) and `score` (or `proba__<type>`), plus a `.json` sidecar with
-`seed`, `family`, `split_fingerprint` and `producer`. Point a candidate at it:
-
-```yaml
-candidates: [{external: {path: scores/cnn_{seed}.parquet}}]
-```
-
-A file that does not match the exported splits, scores rows its model was trained on, or misses a
-required row is rejected with a message naming the problem.
-
-## A config in brief
-
-```yaml
-name: my-cascade
+name: router-gate
 dataset: {train: data/train.parquet, test: data/test.parquet, label: label, type: attack_cat}
+protocol: {seeds: [0, 1, 2], objective: accuracy}
 entry: binary
 stages:
   binary:
     kind: classifier
     calibrate: sigmoid
     pipeline: [{class: idslab.prep.Encode, params: {categorical: [proto, service]}}]
-    candidates: [{class: sklearn.ensemble.RandomForestClassifier, params: {n_estimators: 200}}]
+    candidates:
+      - class: sklearn.ensemble.RandomForestClassifier
+        search: {space: {max_depth: [8, 16, null]}, n_iter: 3, cv: 3}
+      - class: xgboost.XGBClassifier
     decision: {threshold: 0.5, off: benign}
-    routes: {attack: ATTACK, benign: gate}       # the gate re-checks benign calls
+    routes: {attack: ATTACK, benign: gate}        # the gate re-checks what the classifier lets through
   gate:
     kind: detector
     fit_on: benign
     pipeline: [{class: idslab.prep.Encode, params: {categorical: [proto, service]}}]
     candidates: [{class: sklearn.ensemble.IsolationForest}]
-    decision: {budget: [0.01, 0.05], off: normal}
+    decision: {budget: [0.01, 0.02, 0.05], off: normal}   # chosen on VAL, with "off" as an option
     routes: {anomalous: ATTACK, normal: BENIGN}
 ```
 
-Any scikit-learn style model can sit in a stage if it meets the stage's score contract. The full
-design is in [DESIGN.md](DESIGN.md).
+## What every run reports
+
+- The cascade and three versions of its first stage alone on TEST: at its own threshold, at its best
+  VAL cutoff, and at the cascade's false alarm rate.
+- Paired bootstrap intervals of cascade minus each control, and the spread over seeds.
+- The frontier gap: the cascade's detection rate minus the best the first stage reaches at the same
+  false alarm rate by threshold choice alone.
+- The effect of switching each stage off, and the step each stage adds in order.
+- The configuration chosen on VAL and the full selection trace, per seed.
+
+## Documentation
+
+[Getting started](https://github.com/hashtagRR/IDSLab/blob/main/docs/getting-started.md) |
+[Config reference](https://github.com/hashtagRR/IDSLab/blob/main/docs/config-reference.md) |
+[Protocol and controls](https://github.com/hashtagRR/IDSLab/blob/main/docs/protocol.md) |
+[Models in stages](https://github.com/hashtagRR/IDSLab/blob/main/docs/models.md) |
+[Outputs](https://github.com/hashtagRR/IDSLab/blob/main/docs/outputs.md) |
+[Command line](https://github.com/hashtagRR/IDSLab/blob/main/docs/cli.md) |
+[Dashboard](https://github.com/hashtagRR/IDSLab/blob/main/docs/dashboard.md) |
+[Design](https://github.com/hashtagRR/IDSLab/blob/main/DESIGN.md) |
+[Changes](https://github.com/hashtagRR/IDSLab/blob/main/CHANGELOG.md)
+
+## Citing
+
+If you use IDSLab in published work, please cite it; [CITATION.cff](https://github.com/hashtagRR/IDSLab/blob/main/CITATION.cff) has the details
+(GitHub shows them under "Cite this repository").
 
 ## License
 
-GNU Affero General Public License v3.0 or later. See [LICENSE](LICENSE).
+GNU Affero General Public License v3.0 or later. See [LICENSE](https://github.com/hashtagRR/IDSLab/blob/main/LICENSE).
