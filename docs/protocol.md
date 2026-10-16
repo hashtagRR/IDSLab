@@ -94,6 +94,8 @@ moving the first stage's threshold does not. It is evidence on this TEST sample,
 The effect is the cascade minus that variant. Effects are contributions inside the chosen design and
 need not add up.
 
+![Accuracy as each stage is added, on VAL and on TEST](img/stage-steps.svg)
+
 **Prefix steps.** The cascade truncated after each stage in order (later stages off). Consecutive
 differences add up to the change from "no stages" (every flow takes the entry stage's `off`) to the
 full cascade.

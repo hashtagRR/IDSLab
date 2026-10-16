@@ -38,7 +38,7 @@
 <circle cx="394.6" cy="214.9" r="5" fill="#fff" stroke="#1f2328" stroke-width="1.6"/>
 <text x="404.6" y="230.9" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1f2328" text-anchor="start">B1: first stage at 0.5</text>
 <text x="255.6" y="292.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" fill="#bc4c00" text-anchor="start">cascade</text>
-<text x="231.6" y="278.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" fill="#cf222e" text-anchor="end">gap -0.0100</text>
+<text x="223.6" y="278.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" fill="#cf222e" text-anchor="end">gap -0.0100</text>
 <rect x="440.0" y="400.0" width="236.0" height="58.0" rx="6" fill="#fff" stroke="#d0d7de" stroke-width="1"/>
 <line x1="452.0" y1="420.0" x2="480.0" y2="420.0" stroke="#0969da" stroke-width="2.2"/>
 <text x="488.0" y="424.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#1f2328" text-anchor="start">first stage: ROC upper hull</text>

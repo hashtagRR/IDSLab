@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="520" viewBox="0 0 900 520" role="img" aria-label="Accuracy of the R1 cascade truncated after each stage, on VAL and on TEST, seed 0"><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#8c959f"/></marker></defs><rect width="100%" height="100%" fill="#ffffff"/><text x="48.0" y="50.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#0969da" text-anchor="start" letter-spacing="1.5">ADDING STAGES</text>
+<text x="48.0" y="88.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="26" font-weight="700" fill="#1f2328" text-anchor="start">VAL says the extra stages help. TEST disagrees.</text>
+<text x="48.0" y="118.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="16" font-weight="400" fill="#59636e" text-anchor="start">R1 example, seed 0: accuracy of the cascade cut after each stage.</text>
+<rect x="110.0" y="140.0" width="600.0" height="280.0" rx="0" fill="#fff" stroke="#d0d7de" stroke-width="1"/>
+<line x1="110.0" y1="420.0" x2="710.0" y2="420.0" stroke="#eaeef2" stroke-width="1"/>
+<text x="102.0" y="424.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#59636e" text-anchor="end">0.820</text>
+<line x1="110.0" y1="373.3" x2="710.0" y2="373.3" stroke="#eaeef2" stroke-width="1"/>
+<text x="102.0" y="377.3" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#59636e" text-anchor="end">0.825</text>
+<line x1="110.0" y1="326.7" x2="710.0" y2="326.7" stroke="#eaeef2" stroke-width="1"/>
+<text x="102.0" y="330.7" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#59636e" text-anchor="end">0.830</text>
+<line x1="110.0" y1="280.0" x2="710.0" y2="280.0" stroke="#eaeef2" stroke-width="1"/>
+<text x="102.0" y="284.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#59636e" text-anchor="end">0.835</text>
+<line x1="110.0" y1="233.3" x2="710.0" y2="233.3" stroke="#eaeef2" stroke-width="1"/>
+<text x="102.0" y="237.3" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#59636e" text-anchor="end">0.840</text>
+<line x1="110.0" y1="186.7" x2="710.0" y2="186.7" stroke="#eaeef2" stroke-width="1"/>
+<text x="102.0" y="190.7" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#59636e" text-anchor="end">0.845</text>
+<line x1="110.0" y1="140.0" x2="710.0" y2="140.0" stroke="#eaeef2" stroke-width="1"/>
+<text x="102.0" y="144.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#59636e" text-anchor="end">0.850</text>
+<text transform="translate(44,280.0) rotate(-90)" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="13" fill="#59636e" text-anchor="middle">accuracy</text>
+<path d="M170.0,357.8 L410.0,256.7 L650.0,248.9" fill="none" stroke="#bc4c00" stroke-width="2.6" stroke-dasharray="6 4"/>
+<circle cx="170.0" cy="357.8" r="5" fill="#bc4c00" stroke="#fff" stroke-width="1.5"/>
+<text x="179.0" y="377.8" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#bc4c00" text-anchor="start">0.8267</text>
+<circle cx="410.0" cy="256.7" r="5" fill="#bc4c00" stroke="#fff" stroke-width="1.5"/>
+<text x="419.0" y="276.7" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#bc4c00" text-anchor="start">0.8375</text>
+<circle cx="650.0" cy="248.9" r="5" fill="#bc4c00" stroke="#fff" stroke-width="1.5"/>
+<text x="659.0" y="268.9" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#bc4c00" text-anchor="start">0.8383</text>
+<text x="722.0" y="264.9" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#bc4c00" text-anchor="start">VAL</text>
+<path d="M170.0,192.9 L410.0,236.4 L650.0,242.7" fill="none" stroke="#0969da" stroke-width="2.6"/>
+<circle cx="170.0" cy="192.9" r="5" fill="#0969da" stroke="#fff" stroke-width="1.5"/>
+<text x="179.0" y="182.9" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#0969da" text-anchor="start">0.8443</text>
+<circle cx="410.0" cy="236.4" r="5" fill="#0969da" stroke="#fff" stroke-width="1.5"/>
+<text x="419.0" y="226.4" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#0969da" text-anchor="start">0.8397</text>
+<circle cx="650.0" cy="242.7" r="5" fill="#0969da" stroke="#fff" stroke-width="1.5"/>
+<text x="659.0" y="232.7" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#0969da" text-anchor="start">0.8390</text>
+<text x="722.0" y="236.7" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#0969da" text-anchor="start">TEST</text>
+<text x="170.0" y="440.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" fill="#1f2328" text-anchor="middle">first stage</text>
+<text x="170.0" y="457.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#59636e" text-anchor="middle">1,200 VAL rows reach it</text>
+<text x="410.0" y="440.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" fill="#1f2328" text-anchor="middle">+ router</text>
+<text x="410.0" y="457.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#59636e" text-anchor="middle">363 VAL rows reach it</text>
+<text x="650.0" y="440.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" fill="#1f2328" text-anchor="middle">+ gate</text>
+<text x="650.0" y="457.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#59636e" text-anchor="middle">53 VAL rows reach it</text>
+<text x="48.0" y="486.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#59636e" text-anchor="start">Choices are made on VAL, as they must be; the router and gate were chosen on 363 and 53 VAL rows.</text>
+<text x="48.0" y="505.0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#59636e" text-anchor="start">IDSLab reads TEST once, after the freeze, and reports whether the gain held. Here it did not.</text></svg>

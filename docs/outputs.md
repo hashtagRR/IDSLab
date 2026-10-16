@@ -35,6 +35,8 @@ rewritten after every run (unless `--no-report`) and by `idslab report`.
 
 ## per_flow.parquet (TEST)
 
+![Where every TEST flow goes, from per_flow.parquet](img/flow-map.svg)
+
 One row per TEST flow: `row_id`, `y` (true label), `type` (when the dataset has one), `score_<stage>`
 for every active stage's chosen candidate, `path` (stages visited, joined by `>`), `exit_stage`,
 `pred_<system>` for the cascade and every control (1 = attack), and `type_recorded` when a type stage

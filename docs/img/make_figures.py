@@ -16,6 +16,7 @@ example), so every value in them is a measured one.
 from __future__ import annotations
 
 import argparse
+import itertools
 import json
 from importlib import resources
 from pathlib import Path
@@ -597,7 +598,7 @@ def frontier(run_dir: Path, run: dict, path: Path) -> None:
     svg.text(fx(b1f) + 10, fy(b1t) + 16, "B1: first stage at 0.5", size=12, fill=C["fg"])
     svg.text(fx(cf) + 12, fy(ct) + 18, "cascade", size=12.5, weight=700, fill=C["orange"])
     svg.text(
-        fx(cf) - 12,
+        fx(cf) - 20,
         fy(ct) + 4,
         f"gap {gap['gap_interp']:+.4f}",
         size=12.5,
@@ -633,6 +634,213 @@ def upper_hull(fpr: np.ndarray, tpr: np.ndarray) -> list[tuple[float, float]]:
                 break
         hull.append(p)
     return hull
+
+
+# ---------- flow map ----------
+
+
+def flow_map(run_dir: Path, path: Path) -> None:
+    """Where every TEST flow of seed 0 goes, split by its true class (R1 layout)."""
+    flow = pd.read_parquet(run_dir / "standard" / "seed_0" / "per_flow.parquet")
+    terminal = np.where(flow["pred_cascade"] == 1, "ATTACK", "BENIGN")
+    edges: dict[tuple[str, str], list[int]] = {}
+    for p, term, y in zip(flow["path"], terminal, flow["y"], strict=True):
+        hops = [*str(p).split(">"), str(term)]
+        for a, b in itertools.pairwise(hops):
+            edges.setdefault((a, b), [0, 0])[int(y)] += 1
+    n = len(flow)
+    n_att = int(flow["y"].sum())
+
+    def count(a, b):
+        return edges.get((a, b), [0, 0])
+
+    W, H = 1280, 720
+    svg = Svg(W, H, FLOW_ALT)
+    header(
+        svg,
+        "WHERE EVERY TEST FLOW GOES",
+        "The R1 cascade, flow by flow",
+        f"Seed 0 of the synthetic example: {n:,} TEST flows, {n_att:,} of them attacks. "
+        "Band width is the number of flows; red is true attacks, green true benign.",
+        size=28,
+    )
+    sc = 330 / n
+    nodes = {
+        "binary": (170, 168, n),
+        "router": (500, 168, sum(sum(v) for (a, _), v in edges.items() if a == "router")),
+        "gate": (830, 300, sum(sum(v) for (a, _), v in edges.items() if a == "gate")),
+        "ATTACK": (1110, 168, sum(sum(v) for (_, b), v in edges.items() if b == "ATTACK")),
+        "BENIGN": (1110, 350, sum(sum(v) for (_, b), v in edges.items() if b == "BENIGN")),
+    }
+    out_cursor: dict[str, float] = {k: float(v[1]) for k, v in nodes.items()}
+    in_cursor: dict[str, float] = {k: float(v[1]) for k, v in nodes.items()}
+    order = [
+        ("binary", "router"),
+        ("binary", "BENIGN"),
+        ("router", "ATTACK"),
+        ("router", "gate"),
+        ("gate", "ATTACK"),
+        ("gate", "BENIGN"),
+    ]
+    # terminals take their inputs top to bottom in the order the bands arrive
+    in_order = {
+        "BENIGN": [("gate", "BENIGN"), ("binary", "BENIGN")],
+        "ATTACK": [("router", "ATTACK"), ("gate", "ATTACK")],
+    }
+    in_pos: dict[tuple[str, str], float] = {}
+    for term, srcs in in_order.items():
+        y = nodes[term][1]
+        for e in srcs:
+            in_pos[e] = y
+            y += sum(count(*e)) * sc
+    nw = 16
+    for a, b in order:
+        ben, att = count(a, b)
+        tot = ben + att
+        if tot == 0:
+            continue
+        x1 = nodes[a][0] + nw
+        x2 = nodes[b][0]
+        y1 = out_cursor[a]
+        y2 = in_pos[(a, b)] if (a, b) in in_pos else in_cursor[b]
+        out_cursor[a] += tot * sc
+        if (a, b) not in in_pos:
+            in_cursor[b] += tot * sc
+        mx = (x1 + x2) / 2
+        off = 0.0
+        for k, color in ((att, C["red"]), (ben, C["green"])):
+            hh = k * sc
+            if hh <= 0:
+                continue
+            ya, yb = y1 + off, y2 + off
+            d = (
+                f"M{x1:.1f},{ya:.1f} C{mx:.1f},{ya:.1f} {mx:.1f},{yb:.1f} {x2:.1f},{yb:.1f} "
+                f"L{x2:.1f},{yb + hh:.1f} C{mx:.1f},{yb + hh:.1f} {mx:.1f},{ya + hh:.1f} {x1:.1f},{ya + hh:.1f} Z"
+            )
+            svg.add(f'<path d="{d}" fill="{color}" fill-opacity="0.32" stroke="none"/>')
+            off += hh
+    for name, (x, y, total) in nodes.items():
+        hh = max(total * sc, 3)
+        if name in TERMINALS:
+            color = C["red"] if name == "ATTACK" else C["green"]
+            svg.rect(x, y, nw, hh, fill=color, rx=3)
+        else:
+            svg.rect(x, y, nw, hh, fill=C["fg"], rx=3)
+    # labels
+    ben_b, att_b = count("binary", "BENIGN")
+    ben_r, att_r = count("router", "ATTACK")
+    ben_g, att_g = count("router", "gate")
+    ben_ga, att_ga = count("gate", "ATTACK")
+    ben_gb, att_gb = count("gate", "BENIGN")
+    svg.text(170, 156, f"binary: {n:,} flows", size=14, weight=700)
+    svg.text(500, 156, f"router: {ben_r + att_r + ben_g + att_g:,}", size=14, weight=700)
+    svg.text(830, 290, f"gate: {ben_g + att_g:,}", size=14, weight=700)
+    ta = nodes["ATTACK"][2]
+    svg.text(1134, 186, "ATTACK", size=14, weight=700, fill=C["red"])
+    svg.text(1134, 204, f"{ta:,} flows", size=12.5, fill=C["muted"])
+    svg.text(1134, nodes["BENIGN"][1] + 18, "BENIGN", size=14, weight=700, fill=C["green"])
+    svg.text(1134, nodes["BENIGN"][1] + 36, f"{nodes['BENIGN'][2]:,} flows", size=12.5, fill=C["muted"])
+
+    def note(x, y, lines, color=None):
+        for i, line in enumerate(lines):
+            svg.text(
+                x,
+                y + i * 17,
+                line,
+                size=12.5,
+                weight=700 if i == 0 else 400,
+                fill=(color or C["fg"]) if i == 0 else C["muted"],
+            )
+
+    note(
+        420,
+        556,
+        [f"{ben_b + att_b:,} called benign by binary", f"{att_b:,} of them attacks: missed"],
+        C["red"],
+    )
+    note(700, 146, [f"router flags {ben_r + att_r:,}", f"{att_r:,} attacks, {ben_r:,} false alarms"])
+    note(620, 222, [f"router passes {ben_g + att_g:,} to the gate", f"{att_g:,} of them attacks"])
+    note(900, 268, [f"gate flags {ben_ga + att_ga:,}", f"{att_ga:,} attacks, {ben_ga:,} benign"], C["red"])
+    note(900, 336, [f"gate clears {ben_gb + att_gb:,}", f"{att_gb:,} attacks missed"])
+    svg.rect(48, H - 74, W - 96, 46, fill="#fff", stroke=C["line"], rx=23)
+    svg.text(
+        W / 2,
+        H - 45,
+        f"The gate catches {att_ga} of the {att_g} attacks the router passes to it. The report's stage table"
+        " says the same: removing the gate costs nothing.",
+        size=13.5,
+        anchor="middle",
+    )
+    svg.save(path)
+
+
+FLOW_ALT = (
+    "Flow map of the R1 cascade on seed 0 of the synthetic example: 3,000 TEST flows go through binary, "
+    "router and gate to ATTACK or BENIGN, each band split into true attacks and true benign flows. The "
+    "entry classifier sends 2,125 flows to BENIGN, 352 of them attacks; the router flags 743, 687 of them "
+    "attacks, and passes 132 to the gate, 73 of them attacks; the gate flags 2 benign flows and misses all 73."
+)
+
+
+# ---------- stage steps ----------
+
+
+def stage_steps(run: dict, path: Path) -> None:
+    W, H = 900, 520
+    svg = Svg(W, H, "Accuracy of the R1 cascade truncated after each stage, on VAL and on TEST, seed 0")
+    header(
+        svg,
+        "ADDING STAGES",
+        "VAL says the extra stages help. TEST disagrees.",
+        "R1 example, seed 0: accuracy of the cascade cut after each stage.",
+        size=26,
+    )
+    steps = run["steps"]
+    px, py, pw, ph = 110, 140, 600, 280
+    lo, hi = 0.82, 0.85
+
+    def fx(i):
+        return px + 60 + i * (pw - 120) / (len(steps) - 1)
+
+    def fy(v):
+        return py + ph - (v - lo) / (hi - lo) * ph
+
+    svg.rect(px, py, pw, ph, fill="#fff", stroke=C["line"])
+    for t in np.linspace(lo, hi, 7):
+        svg.line(px, fy(t), px + pw, fy(t), stroke="#eaeef2", sw=1)
+        svg.text(px - 8, fy(t) + 4, f"{t:.3f}", size=11, fill=C["muted"], anchor="end")
+    svg.add(
+        f'<text transform="translate({px - 66},{py + ph / 2}) rotate(-90)" font-family="{FONT}" font-size="13" '
+        f'fill="{C["muted"]}" text-anchor="middle">accuracy</text>'
+    )
+    for key, color, dash, label in (("val", C["orange"], "6 4", "VAL"), ("test", C["blue"], None, "TEST")):
+        pts = [(fx(i), fy(st[key])) for i, st in enumerate(steps)]
+        svg.path("M" + " L".join(f"{a:.1f},{b:.1f}" for a, b in pts), stroke=color, sw=2.6, dash=dash)
+        for (a, b), st in zip(pts, steps, strict=True):
+            svg.circle(a, b, 5, fill=color, stroke="#fff", sw=1.5)
+            svg.text(
+                a + 9, b + (20 if key == "val" else -10), f"{st[key]:.4f}", size=12, fill=color, weight=700
+            )
+        a, b = pts[-1]
+        svg.text(px + pw + 12, b + (16 if key == "val" else -6), label, size=13, weight=700, fill=color)
+    for i, st in enumerate(steps):
+        svg.text(fx(i), py + ph + 20, st["label"], size=12.5, weight=700, anchor="middle")
+        svg.text(fx(i), py + ph + 37, st["sub"], size=11.5, fill=C["muted"], anchor="middle")
+    svg.text(
+        48,
+        H - 34,
+        "Choices are made on VAL, as they must be; the router and gate were chosen on 363 and 53 VAL rows.",
+        size=12.5,
+        fill=C["muted"],
+    )
+    svg.text(
+        48,
+        H - 15,
+        "IDSLab reads TEST once, after the freeze, and reports whether the gain held. Here it did not.",
+        size=12.5,
+        fill=C["muted"],
+    )
+    svg.save(path)
 
 
 # ---------- run numbers ----------
@@ -699,7 +907,26 @@ def run_numbers(run_dir: Path) -> dict:
         (st, f"{sum(not f[st]['off'] for f in frozen.values())} of {len(frozen)}", removal[st]["mean"])
         for st in next(iter(frozen.values()))
     ]
+    prefix = {len(p["stages_on"]): p[goal] for p in s0["controls"]["prefix_test"]}
+    reach = {t["stage"]: t["val_rows_reaching"] for t in s0["selection_trace"]}
+    steps = []
+    for k, t in enumerate(s0["selection_trace"], start=1):
+        val = next(
+            o[goal]
+            for o in t["options"]
+            if o.get("candidate") == t["chosen"].get("candidate")
+            and o.get("value") == t["chosen"].get("value")
+        )
+        steps.append(
+            {
+                "label": ("first stage" if k == 1 else f"+ {t['stage']}"),
+                "sub": f"{reach[t['stage']]:,} VAL rows reach it",
+                "val": val,
+                "test": prefix[k],
+            }
+        )
     return {
+        "steps": steps,
         "n_seeds": len(frozen),
         "stages": stages,
         "systems": systems,
@@ -733,6 +960,8 @@ def main() -> None:
         overview(run, args.out / "idslab-overview.svg")
         selection(run, args.out / "selection.svg")
         frontier(args.run, run, args.out / "frontier-gap.svg")
+        flow_map(args.run, args.out / "flow-map.svg")
+        stage_steps(run, args.out / "stage-steps.svg")
     print(f"figures written to {args.out}")
 
 
