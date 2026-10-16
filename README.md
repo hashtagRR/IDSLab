@@ -4,7 +4,7 @@
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/hashtagRR/IDSLab/main/docs/img/idslab-overview.svg" width="100%"
-       alt="IDSLab overview in four steps. 1 Configure: data, stages, models and routes in one YAML file, run with idslab run. 2 Fit, then choose on VAL: splits FIT-base, CAL, VAL and a locked TEST; stages binary, router and gate; the router cutoff is chosen by the VAL accuracy of the whole cascade, with off as an option. 3 TEST after the freeze: the cascade against three versions of its first stage alone, plus the controls. 4 Report: cascade minus first stage and frontier gap; on the synthetic example the cascade ends below its first stage, and the report says so.">
+       alt="IDSLab overview. Question: does every stage of your IDS cascade earn its place? 1 Your design: a binary classifier, a router and an anomaly gate, each with its model and decision, written in one YAML file. 2 One fixed protocol: splits per seed with TEST locked, each stage fitted on its own rows, models and thresholds chosen on VAL with off as an option, TEST read once next to controls. 3 The answer on synthetic data: the cascade and the first stage alone reach almost the same TEST accuracy; the entry classifier carries the result and the router and gate add nothing here.">
 </p>
 
 A config-driven framework for evaluating staged (cascade) network intrusion detection systems.

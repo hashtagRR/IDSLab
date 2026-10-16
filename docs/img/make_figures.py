@@ -239,26 +239,23 @@ def cascade(cfg: Config, title: str, path: Path) -> None:
 
 
 def overview(run: dict, path: Path) -> None:
-    W, H = 1280, 760
+    W, H = 1280, 700
     svg = Svg(W, H, OVERVIEW_ALT)
     header(
         svg,
         "IDSLAB",
-        "Does the cascade beat its own first stage?",
-        "Describe a staged IDS in one YAML file. IDSLab fits it, chooses every setting on validation data,"
-        " and reports it on the test set next to its first stage alone.",
+        "Does every stage of your IDS cascade earn its place?",
+        "Run any staged design under one fixed protocol and compare it with its own first stage, stage by stage.",
     )
-    top, ch = 168, 492
-    widths = [262, 300, 290, 240]
-    gap = (W - 96 - sum(widths)) / 3
-    xs = [48.0]
-    for wd in widths[:-1]:
-        xs.append(xs[-1] + wd + gap)
-    for i in range(3):
-        a = xs[i] + widths[i] + 6
-        svg.line(a, top + ch / 2, a + gap - 12, top + ch / 2, arrow=True)
+    top, ch = 160, 440
+    widths = [356, 352, 428]
+    gap = (W - 96 - sum(widths)) / 2
+    xs = [48.0, 48 + widths[0] + gap, 48 + widths[0] + widths[1] + 2 * gap]
+    for k in range(2):
+        a = xs[k] + widths[k] + 8
+        svg.line(a, top + ch / 2, a + gap - 16, top + ch / 2, arrow=True)
 
-    # 1 configure
+    # 1 your design
     x, w = xs[0], widths[0]
     card(
         svg,
@@ -268,40 +265,42 @@ def overview(run: dict, path: Path) -> None:
         ch,
         C["gray"],
         "1",
-        "CONFIGURE",
-        ["Data, stages, models and", "routes in one YAML file."],
+        "YOUR DESIGN",
+        ["Stages, the model in each, and where", "each output goes: one YAML file."],
     )
-    yaml_lines = [
-        ("entry", ": binary"),
-        ("stages", ":"),
-        ("  binary", ":"),
-        ("    kind", ": classifier"),
-        ("    decision", ": {threshold: .5}"),
-        ("    routes", ": {attack: router,"),
-        ("", "             benign: BENIGN}"),
-        ("  router", ":"),
-        ("    kind", ": classifier"),
-        ("    decision", ": {grid: [.5, .6, .7]}"),
-        ("    routes", ": {benign: gate, ...}"),
-        ("  gate", ":"),
-        ("    kind", ": detector"),
-        ("    fit_on", ": benign"),
-        ("    decision", ": {budget: [.01, .05]}"),
+    nodes = [
+        ("binary", "classifier", "random forest", "threshold 0.5"),
+        ("router", "classifier", "random forest", "cutoff chosen on VAL"),
+        ("gate", "detector", "isolation forest or LOF", "alarm budget chosen on VAL"),
     ]
-    bx, by, bw = x + 18, top + 112, w - 36
-    svg.rect(bx, by, bw, 300, fill="#fff", stroke=C["line"], rx=6)
-    svg.text(bx + 10, by + 18, "cfg.yaml", size=11, mono=True, fill=C["muted"])
-    svg.line(bx, by + 27, bx + bw, by + 27, stroke=C["line"], sw=1)
-    for i, (k, v) in enumerate(yaml_lines):
-        yy = by + 46 + i * 17.2
-        svg.add(
-            f'<text x="{bx + 10:.1f}" y="{yy:.1f}" font-family="{MONO}" font-size="10.6" xml:space="preserve">'
-            f'<tspan fill="{C["blue"]}">{esc(k)}</tspan><tspan fill="{C["fg"]}">{esc(v)}</tspan></text>'
-        )
-    svg.rect(bx, top + ch - 62, bw, 36, fill=C["code"], rx=6)
-    svg.text(bx + 12, top + ch - 39, "$ idslab run cfg.yaml", size=12.5, mono=True, fill=C["code_fg"])
+    side = [("benign", "BENIGN"), ("attack", "ATTACK"), ("anomalous", "ATTACK")]
+    down = ["attack", "benign", "normal"]
+    nx, nw, nh = x + 22, 186, 62
+    for i, (name, kind, model, dec) in enumerate(nodes):
+        ny = top + 112 + i * 100
+        color = C[KIND_COLOR[kind]]
+        svg.rect(nx, ny, nw, nh, fill="#fff", stroke=color, rx=9, sw=1.6)
+        svg.rect(nx, ny + 9, 4, nh - 18, fill=color, rx=2)
+        svg.text(nx + 14, ny + 21, name, size=14, weight=700)
+        svg.text(nx + 14 + len(name) * 8.6 + 8, ny + 21, kind, size=11.5, fill=color)
+        svg.text(nx + 14, ny + 39, model, size=12, fill=C["fg"])
+        svg.text(nx + 14, ny + 55, dec, size=11.5, fill=C["muted"])
+        out, term = side[i]
+        fg, bg = (C["red"], C["red_bg"]) if term == "ATTACK" else (C["green"], C["green_bg"])
+        svg.line(nx + nw + 2, ny + 22, nx + nw + 58, ny + 22, arrow=True)
+        svg.text(nx + nw + 6, ny + 16, out, size=10.5, fill=C["muted"])
+        svg.pill(nx + nw + 62, ny + 10, 76, 24, term, fg=fg, bg=bg, size=11.5)
+        if i < 2:
+            svg.line(nx + 40, ny + nh + 2, nx + 40, ny + 98, arrow=True)
+            svg.text(nx + 48, ny + nh + 22, down[i], size=11, fill=C["muted"])
+        else:
+            svg.line(nx + nw + 2, ny + 48, nx + nw + 58, ny + 48, arrow=True)
+            svg.text(nx + nw + 6, ny + 42, "normal", size=10.5, fill=C["muted"])
+            svg.pill(nx + nw + 62, ny + 36, 76, 24, "BENIGN", fg=C["green"], bg=C["green_bg"], size=11.5)
+    svg.text(x + 22, top + ch - 44, "Any model per stage: scikit-learn, XGBoost,", size=12, fill=C["muted"])
+    svg.text(x + 22, top + ch - 26, "PyOD, PyTorch, or scores from a GPU job.", size=12, fill=C["muted"])
 
-    # 2 fit and select on VAL
+    # 2 the protocol
     x, w = xs[1], widths[1]
     card(
         svg,
@@ -311,68 +310,37 @@ def overview(run: dict, path: Path) -> None:
         ch,
         C["blue"],
         "2",
-        "FIT, THEN CHOOSE ON VAL",
-        [
-            "Stages fit on their own rows. Settings",
-            "are chosen on VAL, one stage at a time,",
-            "with off always an option.",
-        ],
+        "ONE FIXED PROTOCOL",
+        ["The same rules for every design,", "so results compare."],
     )
-    # splits bar
-    sx, sy, sw_ = x + 22, top + 138, w - 44
+    rules = [
+        ("Split per seed", "TEST is locked until every choice is made"),
+        ("Fit each stage on its own rows", "pipelines, search and calibration inside"),
+        ("Choose models and thresholds on VAL", "every tunable stage may be switched off"),
+        ("Read TEST once", "next to controls built from the first stage"),
+    ]
+    for i, (head, sub) in enumerate(rules):
+        ry = top + 108 + i * 64
+        svg.circle(x + 34, ry + 6, 11, fill=C["blue_bg"], stroke=C["blue"])
+        svg.text(x + 34, ry + 10.5, str(i + 1), size=12, weight=700, fill=C["blue"], anchor="middle")
+        svg.text(x + 54, ry + 11, head, size=13.5, weight=700)
+        svg.text(x + 54, ry + 30, sub, size=12, fill=C["muted"])
+    bx, by, bw = x + 22, top + 120 + 4 * 64, w - 44
     parts = [
         ("FIT-base", 0.48, C["blue"]),
         ("CAL", 0.12, C["purple"]),
         ("VAL", 0.15, C["orange"]),
         ("TEST", 0.25, C["gray"]),
     ]
-    cx = sx
+    cx = bx
     for name, frac, color in parts:
-        ww = sw_ * frac
-        svg.rect(cx, sy, ww - 2, 22, fill=color, rx=4)
-        svg.text(cx + (ww - 2) / 2, sy + 15, name, size=11, weight=700, fill="#fff", anchor="middle")
+        ww = bw * frac
+        svg.rect(cx, by, ww - 2, 22, fill=color, rx=4)
+        svg.text(cx + (ww - 2) / 2, by + 15, name, size=11, weight=700, fill="#fff", anchor="middle")
         cx += ww
-    svg.text(sx, sy + 40, "TEST stays locked until every choice is frozen", size=11.5, fill=C["muted"])
-    # mini cascade
-    my = top + 214
-    names = ["binary", "router", "gate"]
-    kinds = ["classifier", "classifier", "detector"]
-    nw = 74
-    step = (w - 44 - nw) / 2
-    for i, (n, k) in enumerate(zip(names, kinds, strict=True)):
-        nx = x + 22 + i * step
-        svg.rect(nx, my, nw, 34, fill="#fff", stroke=C[KIND_COLOR[k]], rx=7, sw=1.6)
-        svg.text(nx + nw / 2, my + 22, n, size=12.5, weight=700, anchor="middle")
-        if i < 2:
-            svg.line(nx + nw + 2, my + 17, nx + step - 4, my + 17, arrow=True)
-    # router option bars (real VAL accuracy)
-    trace = run["router_options"]
-    by0 = top + 280
-    svg.text(x + 22, by0, "router cutoff: VAL accuracy of the", size=12, weight=600)
-    svg.text(x + 22, by0 + 16, "whole cascade for each option", size=12, weight=600)
-    lo, hi = 0.76, 0.845
-    bar_w = (w - 44) / len(trace)
-    base = by0 + 140
-    for i, (label, acc, chosen) in enumerate(trace):
-        bx_ = x + 22 + i * bar_w + 5
-        hh = (acc - lo) / (hi - lo) * 110
-        color = C["blue"] if chosen else ("#afb8c1" if label != "off" else C["faint"])
-        svg.rect(bx_, base - hh, bar_w - 10, hh, fill=color, rx=3)
-        svg.text(
-            bx_ + (bar_w - 10) / 2, base - hh - 5, f"{acc:.3f}", size=10, fill=C["muted"], anchor="middle"
-        )
-        svg.text(
-            bx_ + (bar_w - 10) / 2,
-            base + 15,
-            label,
-            size=11.5,
-            weight=700 if chosen else 400,
-            anchor="middle",
-        )
-    svg.line(x + 22, base, x + w - 22, base, stroke=C["line"], sw=1)
-    svg.text(x + 22, top + ch - 26, "chosen: 0.6. Ties go to off.", size=12, fill=C["blue"], weight=600)
+    svg.text(x + 22, top + ch - 26, "Also: held-out attack families, novel types.", size=12, fill=C["muted"])
 
-    # 3 test
+    # 3 the answer
     x, w = xs[2], widths[2]
     card(
         svg,
@@ -380,87 +348,84 @@ def overview(run: dict, path: Path) -> None:
         top,
         w,
         ch,
-        C["orange"],
+        C["green"],
         "3",
-        "TEST, AFTER THE FREEZE",
-        ["The frozen cascade against its first", "stage alone, all on the same fitted", "first-stage model."],
+        "THE ANSWER",
+        [f"Example: the design on the left, synthetic data, {run['n_seeds']} seeds."],
     )
-    sysv = run["systems"]
-    svg.text(x + 22, top + 138, "TEST accuracy, mean of 3 seeds", size=12, weight=600)
-    lo, hi = 0.83, 0.845
-    for i, (key, val) in enumerate(sysv):
-        yy = top + 152 + i * 34
-        label = SYSTEM_LABEL[key]
-        svg.text(x + 22, yy + 13, label, size=11.5, fill=C["fg"] if key == "cascade" else C["muted"])
-        ww = (val - lo) / (hi - lo) * (w - 110)
-        svg.rect(x + 22, yy + 18, ww, 9, fill=C["orange"] if key == "cascade" else "#afb8c1", rx=3)
-        svg.text(x + 28 + ww, yy + 27, f"{val:.3f}", size=11, fill=C["muted"])
-    cy0 = top + 300
-    svg.text(x + 22, cy0, "Controls in every report", size=12, weight=600)
-    for i, item in enumerate(
-        [
-            "paired bootstrap: cascade minus each control",
-            "frontier gap against the first stage's ROC",
-            "effect of switching each stage off",
-            "step each stage adds, in order",
-            "prevalence check, spread over seeds",
-        ]
-    ):
-        yy = cy0 + 24 + i * 25
-        svg.circle(x + 28, yy - 4, 4, fill=C["orange"])
-        svg.text(x + 40, yy, item, size=12, fill=C["fg"])
-
-    # 4 report
-    x, w = xs[3], widths[3]
-    card(svg, x, top, w, ch, C["green"], "4", "REPORT", ["The answer first, then every", "number behind it."])
     systems = dict(run["systems"])
-    tiles = [
-        ("cascade accuracy", f"{systems['cascade']:.4f}", C["fg"]),
-        ("first stage alone (B1)", f"{systems['B1_first_stage']:.4f}", C["fg"]),
-        ("cascade minus first stage", f"{run['diff']:+.4f}", C["red"]),
-        ("frontier gap", f"{run['gap']:+.4f}", C["red"]),
+    lo, hi = 0.80, 0.85
+    bars = [
+        ("cascade", systems["cascade"], C["orange"]),
+        ("first stage alone", systems["B1_first_stage"], C["blue"]),
     ]
-    for i, (lab, val, color) in enumerate(tiles):
-        yy = top + 106 + i * 58
-        svg.rect(x + 18, yy, w - 36, 50, fill="#fff", stroke=C["line"], rx=8)
-        svg.text(x + 30, yy + 18, lab, size=11.5, fill=C["muted"])
-        svg.text(x + 30, yy + 41, val, size=18, weight=700, fill=color)
-    note = [
-        "Synthetic example: router and gate",
-        "improve VAL, yet the cascade ends",
-        "below its first stage on TEST.",
-        "The report says so.",
-    ]
-    for i, line in enumerate(note):
-        svg.text(x + 22, top + 352 + i * 18, line, size=12, fill=C["muted"])
-    files = ["report.html", "report.md", "report.json"]
-    for i, f in enumerate(files):
-        svg.pill(x + 16 + i * 70, top + ch - 64, 66, 24, f, fg=C["green"], bg=C["green_bg"], size=10)
-    svg.text(x + 22, top + ch - 20, "or: idslab dashboard", size=12, mono=True, fill=C["muted"])
+    svg.text(x + 22, top + 108, "TEST accuracy", size=12, weight=600)
+    for i, (lab, val, color) in enumerate(bars):
+        yy = top + 120 + i * 30
+        svg.text(x + 22, yy + 15, lab, size=12.5)
+        ww = (val - lo) / (hi - lo) * (w - 210)
+        svg.rect(x + 150, yy + 3, ww, 16, fill=color, rx=3)
+        svg.text(x + 158 + ww, yy + 15, f"{val:.4f}", size=12, weight=700)
+    svg.text(
+        x + 22,
+        top + 196,
+        f"Difference {run['diff']:+.4f}; no seed shows a gain beyond bootstrap noise.",
+        size=12,
+        fill=C["muted"],
+    )
+    ty = top + 226
+    svg.text(x + 22, ty, "stage", size=11, weight=700, fill=C["muted"], ls=0.6)
+    svg.text(x + 106, ty, "kept on VAL", size=11, weight=700, fill=C["muted"], ls=0.6)
+    svg.text(x + 196, ty, "lost if removed", size=11, weight=700, fill=C["muted"], ls=0.6)
+    svg.text(x + 306, ty, "reading", size=11, weight=700, fill=C["muted"], ls=0.6)
+    svg.line(x + 22, ty + 8, x + w - 22, ty + 8, stroke=C["line"], sw=1)
+    for i, (stage, on, eff) in enumerate(run["stages"]):
+        yy = ty + 32 + i * 34
+        good = eff > 0.005
+        svg.text(x + 22, yy, stage, size=13, weight=700)
+        svg.text(x + 106, yy, on, size=12.5)
+        svg.text(x + 196, yy, f"{eff:+.3f}", size=12.5, mono=True, fill=C["green"] if good else C["red"])
+        reading = "carries the result" if good else "adds nothing here"
+        svg.pill(
+            x + 300,
+            yy - 16,
+            106,
+            22,
+            reading,
+            fg=C["green"] if good else C["red"],
+            bg=C["green_bg"] if good else C["red_bg"],
+            size=10.5,
+        )
+        svg.line(x + 22, yy + 12, x + w - 22, yy + 12, stroke="#eaeef2", sw=1)
+    svg.text(
+        x + 22, top + ch - 44, "Plus the frontier gap, paired bootstrap intervals,", size=12, fill=C["muted"]
+    )
+    svg.text(
+        x + 22, top + ch - 26, "selection traces, a report page and a dashboard.", size=12, fill=C["muted"]
+    )
 
-    # bottom strip
-    by = top + ch + 28
-    half = (W - 96 - 24) / 2
-    for i, (title, text) in enumerate(
-        [
-            ("Unseen attacks", "hold out each attack family, or test types never trained on"),
-            ("Models trained elsewhere", "export splits, train on a GPU, import checked scores"),
-        ]
-    ):
-        bx = 48 + i * (half + 24)
-        svg.rect(bx, by, half, 44, fill="#fff", stroke=C["line"], rx=22)
-        svg.text(bx + 22, by + 27, title + ": ", size=13, weight=700)
-        svg.text(bx + 22 + len(title) * 8.2 + 14, by + 27, text, size=13, fill=C["muted"])
+    # bottom line
+    by = top + ch + 30
+    svg.rect(48, by, W - 96, 46, fill="#fff", stroke=C["line"], rx=23)
+    svg.text(
+        W / 2,
+        by + 29,
+        "Here the extra stages looked better on VAL, yet the first stage alone is as good on TEST. That is the finding IDSLab exists to make visible.",
+        size=13.5,
+        fill=C["fg"],
+        anchor="middle",
+    )
     svg.save(path)
 
 
 OVERVIEW_ALT = (
-    "IDSLab overview in four steps. 1 Configure: data, stages, models and routes in one YAML file, run "
-    "with idslab run. 2 Fit, then choose on VAL: splits FIT-base, CAL, VAL and a locked TEST; stages "
-    "binary, router and gate; the router cutoff is chosen by the VAL accuracy of the whole cascade, with "
-    "off as an option. 3 TEST after the freeze: the cascade against three versions of its first stage "
-    "alone, plus the controls. 4 Report: cascade minus first stage, frontier gap and stage use; on the "
-    "synthetic example the cascade ends below its first stage, and the report says so."
+    "IDSLab overview. Question: does every stage of your IDS cascade earn its place? 1 Your design: a "
+    "binary classifier, a router and an anomaly gate, each with its model and decision, routed to BENIGN "
+    "or ATTACK, written in one YAML file. 2 One fixed protocol: splits per seed with TEST locked, each "
+    "stage fitted on its own rows, models and thresholds chosen on VAL with off as an option, TEST read "
+    "once next to controls. 3 The answer on synthetic data: the cascade and the first stage alone reach "
+    "almost the same TEST accuracy; the entry classifier carries the result and the router and gate add "
+    "nothing here."
 )
 
 
@@ -728,7 +693,15 @@ def run_numbers(run_dir: Path) -> dict:
         float(((pb == 1) & (yv == 0)).sum() / (yv == 0).sum()),
         float(((pb == 1) & (yv == 1)).sum() / (yv == 1).sum()),
     )
+    frozen = rep["frozen_per_seed"]
+    removal = rep["stage_removal"]
+    stages = [
+        (st, f"{sum(not f[st]['off'] for f in frozen.values())} of {len(frozen)}", removal[st]["mean"])
+        for st in next(iter(frozen.values()))
+    ]
     return {
+        "n_seeds": len(frozen),
+        "stages": stages,
         "systems": systems,
         "router_options": router_options,
         "trace": trace,
