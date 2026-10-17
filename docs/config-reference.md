@@ -41,12 +41,12 @@ selection, resampling) belongs in a stage `pipeline`, never here.
 | `seeds`        | `[0, 1, 2, 3, 4]` | one run per seed; each seed changes the splits and every random state |
 | `val_fraction` | `0.2`             | share of the train partition used as VAL (between 0 and 0.5)          |
 | `cal_fraction` | `0.2`             | share of FIT used as CAL for calibrated stages (between 0 and 0.5)    |
-| `objective`    | `accuracy`        | `accuracy`, `mcc`, `f1` or `balanced_accuracy`; every VAL choice uses it |
+| `objective`    | `accuracy`        | `accuracy`, `mcc`, `f1`, `balanced_accuracy`, a cost or a recall cap (below), or a plugin's; every VAL choice uses it |
 | `mode`         | `standard`        | `standard`, `heldout_family` or `natural_novelty` (see below)         |
 | `n_jobs`       | `1`               | cores per model fit and search; `-1` for all                          |
 | `subsample`    | `{}`              | `{train: N, test: M}`: stratified train sample, random TEST sample    |
 | `oof_folds`    | `3`               | folds for out-of-fold scores (`extra_features`, `hard`), at least 2   |
-| `search`       | `greedy`          | `joint` adds a check of every decision combination (see below)        |
+| `search`       | `greedy`          | `greedy_fixed` keeps later fixed stages on while judging earlier ones; `joint` adds a check of every combination (see below) |
 | `joint_max`    | `5000`            | largest number of combinations the joint check evaluates              |
 
 Mode options:
@@ -208,6 +208,44 @@ on any other non-numeric column, so a forgotten text column is caught.
 | `bootstrap`          | `1000`                      | paired bootstrap replicates per seed (0 to skip)    |
 | `frontier_bootstrap` | `200`                       | replicates for the frontier gap interval (0 to skip) |
 | `cutoff_grid`        | 0.05 to 0.95 in steps of 0.025 | cutoffs for the B2 control (first stage at its best VAL cutoff) |
+
+## Objectives
+
+```yaml
+protocol:
+  objective: {cost: {missed_attack: 10, false_alarm: 1}}   # or
+  objective: {recall_at_fpr: 0.01}
+```
+
+- `cost`: every VAL choice minimises the average cost per flow, `missed_attack` times the missed
+  attacks plus `false_alarm` times the false alarms, divided by the flows. Reports show it as a
+  negative number (`cost(missed_attack=10,false_alarm=1)`), so that higher is better like every other
+  objective and the differences keep their sign.
+- `recall_at_fpr`: every VAL choice maximises recall among the options whose false alarm rate is at
+  most the cap; when no option meets the cap, the lowest false alarm rate wins. Reports show recall
+  where the cap holds and minus the false alarm rate where it does not.
+- Plugins can add named objectives ([Models in stages](models.md#plugins)).
+
+## Stage cost
+
+```yaml
+stages:
+  deep:
+    cost: 20        # running this stage on a flow costs 20 times a stage with cost 1
+```
+
+A declared, relative cost per flow, 1 when not set. It changes reports only (not selection, and not
+the run fingerprint): the report's stage cost section multiplies it by the share of TEST flows that
+reach each stage and compares the cascade's expected cost per flow with its first stage alone, next to
+the measured scoring time.
+
+## Greedy with fixed stages on
+
+`protocol.search: greedy_fixed` is greedy selection where, while an earlier stage is judged, later
+stages that cannot be switched off anyway stay on instead of off: a fixed threshold, one candidate, and
+no score features or hard rows. In designs where a later stage repairs an earlier one's mistakes (for
+example R2, where a classifier clears a detector's alarms), the earlier stage is then judged with its
+partner in place. Stages with a tuned decision are still judged off, as in plain greedy selection.
 
 ## Joint search check
 

@@ -24,6 +24,8 @@ from typing import Any
 
 import yaml
 
+from idslab.metrics import objective_name
+
 TERMINALS = ("BENIGN", "ATTACK")
 OUTPUTS = {"classifier": ("attack", "benign"), "detector": ("anomalous", "normal")}
 OBJECTIVES = ("accuracy", "mcc", "f1", "balanced_accuracy")
@@ -41,6 +43,7 @@ TYPE_OBJECTIVES = ("macro_f1", "accuracy", "auc")
 DEFAULT_MIN_POOL = 20
 
 MODES = ("standard", "heldout_family", "natural_novelty")
+SEARCHES = ("greedy", "joint", "greedy_fixed")
 
 PLACEHOLDERS = {"seed", "family"}  # allowed in an external score path
 
@@ -90,6 +93,7 @@ class Stage:
     type_objective: str = "macro_f1"
     prep_fit_on: str = "fit"  # rows that fit the preprocessing of a pool detector
     min_pool: int = DEFAULT_MIN_POOL
+    cost: float = 1.0  # declared relative cost of running the stage on one flow (reports only)
 
     @property
     def transductive(self) -> bool:
@@ -169,15 +173,18 @@ class Config:
     def fingerprint(self) -> str:
         """Hash of everything that can change one seed's result.
 
-        ``protocol.seeds`` (which seeds exist) and ``protocol.n_jobs`` (how fast they
-        run) are left out, so adding a seed or changing parallelism keeps finished
-        seeds valid.
+        ``protocol.seeds`` (which seeds exist), ``protocol.n_jobs`` (how fast they
+        run) and each stage's declared ``cost`` (used by reports only) are left out, so
+        changing them keeps finished seeds valid.
         """
         raw = copy.deepcopy(self.raw)
         proto = raw.get("protocol") or {}
         for k in ("seeds", "n_jobs"):
             proto.pop(k, None)
         raw["protocol"] = proto
+        for st in (raw.get("stages") or {}).values():
+            if isinstance(st, dict):
+                st.pop("cost", None)
         blob = json.dumps(raw, sort_keys=True, default=str).encode()
         return hashlib.sha256(blob).hexdigest()
 
@@ -454,8 +461,8 @@ def _protocol(d: Any, errs: list[str]) -> Protocol:
     if not isinstance(d, dict):
         d = {}
     search_mode = d.get("search", "greedy")
-    if search_mode not in ("greedy", "joint"):
-        errs.append("protocol.search: greedy or joint")
+    if search_mode not in SEARCHES:
+        errs.append(f"protocol.search: one of {', '.join(SEARCHES)}")
         search_mode = "greedy"
     joint_max = d.get("joint_max", 5000)
     if not _is_int(joint_max) or joint_max < 1:
@@ -488,8 +495,16 @@ def _protocol(d: Any, errs: list[str]) -> Protocol:
     if mode != "natural_novelty" and "novel_types" in d:
         errs.append("protocol.novel_types applies to mode natural_novelty only")
     objective = d.get("objective", "accuracy")
-    if objective not in OBJECTIVES:
-        errs.append(f"protocol.objective: {objective} not in {OBJECTIVES}")
+    try:
+        objective = objective_name(objective)
+    except ValueError as e:
+        errs.append(f"protocol.{e}")
+        objective = "accuracy"
+    if isinstance(d.get("objective"), str) and objective not in OBJECTIVES:
+        from idslab.plugins import objectives as plugin_objectives  # noqa: PLC0415
+
+        if objective not in plugin_objectives():
+            errs.append(f"protocol.objective: {objective} not in {OBJECTIVES} (or an installed plugin's)")
     seeds = d.get("seeds", [0, 1, 2, 3, 4])
     if not isinstance(seeds, list) or not seeds or not all(_is_int(s) for s in seeds):
         errs.append("protocol.seeds: give a non-empty list of integers")
@@ -620,6 +635,7 @@ def _stage(name: str, d: Any, errs: list[str]) -> Stage | None:
         "type_objective",
         "prep_fit_on",
         "min_pool",
+        "cost",
     }
     if not _keys(d, allowed, where, errs, required={"kind", "candidates", "decision"}):
         return None
@@ -809,6 +825,12 @@ def _stage(name: str, d: Any, errs: list[str]) -> Stage | None:
             min_pool = need
         elif k is not None and min_pool < k + 1:
             errs.append(f"{where}: min_pool {min_pool} is below the largest neighbour count + 1 ({k + 1})")
+    cost = d.get("cost", 1.0)
+    if isinstance(cost, bool) or not isinstance(cost, (int, float)) or cost <= 0:
+        errs.append(
+            f"{where}: cost must be a positive number (relative cost of running the stage on one flow)"
+        )
+        cost = 1.0
     return Stage(
         name=name,
         kind=kind,
@@ -827,6 +849,7 @@ def _stage(name: str, d: Any, errs: list[str]) -> Stage | None:
         type_objective=str(type_objective),
         prep_fit_on=str(prep_fit_on),
         min_pool=int(min_pool),
+        cost=float(cost),
     )
 
 

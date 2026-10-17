@@ -174,7 +174,10 @@ export async function runView(view, meta, path, tab, setCrumbs) {
         "greedy against every combination on VAL") : null));
 
     const systems = Object.keys(st);
-    const metrics = [...new Set([goal, "mcc", "recall", "precision"])].filter((k) => st.cascade?.[k]);
+    // the chart's axis is 0 to 1, so an objective outside that range (a cost) is left to the tables
+    const unit = ["accuracy", "mcc", "f1", "balanced_accuracy", "recall", "precision"];
+    const metrics = [...new Set([unit.includes(goal) ? goal : "accuracy", "mcc", "recall", "precision"])]
+      .filter((k) => st.cascade?.[k]);
     view.append(el("div", {class: "grid-2"},
       card("Systems on TEST", "Mean over units; error bars are one sd.", cardBody(barChart(
         metrics.map((k) => ({label: k, values: systems.map((s) => ({name: systemLabel(s), mean: st[s][k]?.mean,
@@ -196,6 +199,16 @@ export async function runView(view, meta, path, tab, setCrumbs) {
         ["System", goal, "Recall", "FPR", "MCC"],
         systems.map((s) => [systemLabel(s), pm(st[s][goal]), fmt(st[s].recall?.mean), fmt(st[s].fpr?.mean),
           fmt(st[s].mcc?.mean)]), {numeric: [1, 2, 3, 4]})))));
+    const sc = rep.stage_cost;
+    if (sc) {
+      view.append(card("Stage cost", "Share of TEST flows reaching each stage, measured scoring time, declared cost.",
+        el("div", {}, el("div", {class: "card-body flush"}, table(["Stage", "Flows reaching", "ms per 1,000 flows", "Declared cost"],
+          Object.entries(sc.stages).map(([st, r]) => [st, pm(r.reach_share), r.ms_per_1k ? pm(r.ms_per_1k) : "n/a",
+            String(r.declared_cost)]), {numeric: [1, 2, 3]})),
+        cardBody(el("p", {class: "small", style: {margin: 0}, text: `Expected cost per flow: cascade ${pm(sc.cascade_cost)}, ` +
+          `first stage alone ${sc.first_stage_cost}. Scoring time per 1,000 flows: cascade ${pm(sc.cascade_ms_per_1k)} ms, ` +
+          `first stage alone ${sc.first_stage_ms_per_1k ? pm(sc.first_stage_ms_per_1k) : "n/a"} ms.`})))));
+    }
     if (rep.seeds_left_out?.length) {
       view.append(note(`Left out of the report: ${rep.seeds_left_out.map((x) => typeof x === "string" ? x :
         JSON.stringify(x)).join("; ")}`, "warn"));

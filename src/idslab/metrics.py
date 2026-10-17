@@ -8,10 +8,20 @@ vectorised bootstrap replicates.
 
 from __future__ import annotations
 
+import re
+from collections.abc import Callable
+from typing import Any
+
 import numpy as np
 from sklearn.metrics import roc_auc_score, roc_curve
 
 METRICS = ("accuracy", "precision", "recall", "fpr", "f1", "mcc", "balanced_accuracy")
+SHOW = ("accuracy", "recall", "fpr", "precision", "f1", "mcc", "balanced_accuracy")  # report column order
+
+
+def shown(goal: str) -> tuple[str, ...]:
+    """Columns of a systems table: the usual metrics, plus the objective when it is not one of them."""
+    return SHOW if goal in SHOW else (*SHOW, goal)
 
 
 def counts(y: np.ndarray, pred: np.ndarray) -> tuple[int, int, int, int]:
@@ -40,17 +50,79 @@ _FORMULAS = {
 }
 
 
+_PARAMETRIC = re.compile(r"^(cost|recall_at_fpr)\((.*)\)$")
+
+
+def objective_name(spec: Any) -> str:
+    """The canonical name of an objective: a metric name, or a parameterized one such as
+    ``cost(missed_attack=10,false_alarm=1)`` or ``recall_at_fpr(0.01)``. Raises ValueError."""
+    if isinstance(spec, str):
+        return spec
+    if isinstance(spec, dict) and len(spec) == 1:
+        ((kind, arg),) = spec.items()
+        if kind == "cost" and isinstance(arg, dict) and set(arg) == {"missed_attack", "false_alarm"}:
+            a, b = arg["missed_attack"], arg["false_alarm"]
+            if (
+                all(isinstance(v, (int, float)) and not isinstance(v, bool) and v >= 0 for v in (a, b))
+                and a + b > 0
+            ):
+                return f"cost(missed_attack={a:g},false_alarm={b:g})"
+        if (
+            kind == "recall_at_fpr"
+            and isinstance(arg, (int, float))
+            and not isinstance(arg, bool)
+            and 0 < arg < 1
+        ):
+            return f"recall_at_fpr({arg:g})"
+    raise ValueError(
+        "objective: a metric name, {cost: {missed_attack: A, false_alarm: B}} with A, B >= 0, "
+        "or {recall_at_fpr: X} with 0 < X < 1"
+    )
+
+
+def _parametric(name: str, tp, fp, tn, fn) -> np.ndarray | None:
+    m = _PARAMETRIC.match(name)
+    if not m:
+        return None
+    kind, args = m.groups()
+    if kind == "cost":  # negative average cost per flow, so that higher is better like every objective
+        vals = dict(part.split("=") for part in args.split(","))
+        a, b = float(vals["missed_attack"]), float(vals["false_alarm"])
+        return -_div(a * fn + b * fp, tp + fp + tn + fn)
+    cap = float(args)  # recall among options within the false alarm cap, else minus the false alarm rate
+    recall, fpr = _div(tp, tp + fn), _div(fp, fp + tn)
+    return np.where(fpr <= cap + 1e-12, recall, -fpr)
+
+
+def register_objective(name: str, formula: Callable[..., Any]) -> None:
+    """Add an objective computed from confusion counts (tp, fp, tn, fn; arrays broadcast). Higher is
+    better. Used by plugins."""
+    _FORMULAS[name] = formula
+
+
 def from_counts(name: str, tp, fp, tn, fn) -> np.ndarray:
     """Metric ``name`` from confusion counts; arrays broadcast (bootstrap replicates)."""
-    if name not in _FORMULAS:
-        raise ValueError(f"unknown metric {name}")
     tp, fp, tn, fn = (np.asarray(v, dtype=np.float64) for v in (tp, fp, tn, fn))
-    return _FORMULAS[name](tp, fp, tn, fn)
+    if name in _FORMULAS:
+        return np.asarray(_FORMULAS[name](tp, fp, tn, fn), dtype=np.float64)
+    value = _parametric(name, tp, fp, tn, fn)
+    if value is None:
+        from idslab.plugins import objectives  # noqa: PLC0415  (plugins register on first use)
+
+        if name in objectives():
+            return np.asarray(_FORMULAS[name](tp, fp, tn, fn), dtype=np.float64)
+        raise ValueError(f"unknown metric {name}")
+    return value
 
 
-def binary_metrics(y: np.ndarray, pred: np.ndarray) -> dict:
+def metric_names(goal: str | None = None) -> tuple[str, ...]:
+    """The reported metrics, plus the objective when it is not one of them."""
+    return METRICS if goal is None or goal in METRICS else (*METRICS, goal)
+
+
+def binary_metrics(y: np.ndarray, pred: np.ndarray, goal: str | None = None) -> dict:
     tp, fp, tn, fn = counts(y, pred)
-    out = {m: float(from_counts(m, tp, fp, tn, fn)) for m in METRICS}
+    out = {m: float(from_counts(m, tp, fp, tn, fn)) for m in metric_names(goal)}
     out.update(tp=tp, fp=fp, tn=tn, fn=fn, n=tp + fp + tn + fn)
     return out
 

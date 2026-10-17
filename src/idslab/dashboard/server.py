@@ -24,6 +24,7 @@ from idslab.cli import EXAMPLES, validation_text
 from idslab.config import EXTRAS, MODES, OBJECTIVES, ConfigError, dump_yaml, from_dict, parse_yaml
 from idslab.dashboard.jobs import COMMANDS, DEFAULT_OUT, Job, JobError, build_command
 from idslab.dashboard.catalog import catalog
+from idslab.plugins import load as load_plugins
 from idslab.dashboard.workspace import PathError, Workspace, describe, inspect_data
 from idslab.runner import to_jsonable
 
@@ -72,7 +73,7 @@ class App:
             "commands": list(COMMANDS),
             "default_out": DEFAULT_OUT,
             "modes": list(MODES),
-            "objectives": list(OBJECTIVES),
+            "objectives": [*OBJECTIVES, *load_plugins()["objectives"]],
             "extras": _extras(),
             "cpu_count": os.cpu_count(),
         }

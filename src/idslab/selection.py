@@ -123,6 +123,27 @@ def type_objective(name: str, true: np.ndarray, pred: np.ndarray, score: ClassSc
     return float(f1_score(true, pred, labels=labels, average="macro", **quiet))
 
 
+def fixed_on(cfg: Config) -> dict[str, StageState]:
+    """With ``search: greedy_fixed``, the stages that stay on while earlier stages are judged: a fixed
+    threshold, one candidate, scores of their own (no score features or hard rows), fitted once."""
+    if cfg.protocol.search != "greedy_fixed":
+        return {}
+    out = {}
+    for name in cfg.order():
+        st = cfg.stages[name]
+        if (
+            st.kind in ("classifier", "detector")
+            and not st.transductive
+            and st.decision.mode == "threshold"
+            and not st.decision.tunable
+            and len(st.candidates) == 1
+            and not cfg.sources(name)
+        ):
+            v = st.decision.values[0]
+            out[name] = StageState(off=False, candidate=0, threshold=v, value=v)
+    return out
+
+
 def select(
     cfg: Config,
     source: ScoreSource | Scores,
@@ -135,6 +156,9 @@ def select(
     goal = cfg.protocol.objective
     state: dict[str, StageState] = dict.fromkeys(order, OFF)
     table: dict[str, Sequence[Any]] = {}
+    for t, fixed in fixed_on(cfg).items():  # greedy_fixed: these stages start on, not off
+        state[t] = fixed
+        table[t] = src.val(t)
     trace = []
     for s in order:
         st = cfg.stages[s]

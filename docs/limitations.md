@@ -9,6 +9,7 @@ report statements, the selection trace or the run summary.
   so a stage that only helps together with a later one can be switched off. An off stage means "not
   chosen by this procedure", not "cannot help". `protocol.search: joint` measures the gap: on the R2
   example the joint check finds a better combination than greedy selection in every seed.
+  `protocol.search: greedy_fixed` narrows the gap where the later stage has a fixed decision.
 - **AUC selection is a heuristic.** `select_by: auc` (the default for deciding classifiers) keeps the
   candidate with the best AUC on the VAL rows reaching the stage, which need not be the one that helps
   the cascade most; `select_by: objective` chooses candidate and value together at a higher cost.

@@ -13,11 +13,11 @@ import numpy as np
 
 from idslab.config import Config
 from idslab.html_report import render
+from idslab.metrics import shown
 from idslab import __version__
 from idslab.runner import data_fingerprints, write_json
 
 SYSTEMS = ("cascade", "B1_first_stage", "B2_first_stage_val_cutoff", "budget_matched_first_stage")
-SHOW = ("accuracy", "recall", "fpr", "precision", "f1", "mcc", "balanced_accuracy")
 
 
 def load_summaries(
@@ -65,6 +65,10 @@ def _fmt(d: dict, digits: int = 4) -> str:
     if d["mean"] is None:
         return "n/a"
     return f"{d['mean']:.{digits}f}" + (f" ± {d['sd']:.{digits}f}" if d["sd"] is not None else "")
+
+
+def _fmt_opt(d: dict | None) -> str:
+    return "n/a" if d is None else _fmt(d)
 
 
 def _statement_order(text: str) -> tuple[int, str]:
@@ -135,7 +139,7 @@ def aggregate(summaries: list[dict]) -> dict:
     ]
     names = [k for k in names if all(k in s["controls"]["systems_test"] for s in summaries)]
     systems = {
-        name: {m: _ms([s["controls"]["systems_test"][name][m] for s in summaries]) for m in SHOW}
+        name: {m: _ms([s["controls"]["systems_test"][name][m] for s in summaries]) for m in shown(goal)}
         for name in names
     }
     diffs = {}
@@ -206,13 +210,46 @@ def to_markdown(a: dict) -> str:
         "",
         "## Systems on TEST",
         "",
-        "| system | " + " | ".join(SHOW) + " |",
-        "|---|" + "---|" * len(SHOW),
+        "| system | " + " | ".join(shown(goal)) + " |",
+        "|---|" + "---|" * len(shown(goal)),
     ]
     lines.extend(
-        f"| {name} | " + " | ".join(_fmt(a["systems_test"][name][m]) for m in SHOW) + " |"
+        f"| {name} | " + " | ".join(_fmt(a["systems_test"][name][m]) for m in shown(goal)) + " |"
         for name in a["systems_test"]
     )
+    if goal.startswith("cost("):
+        lines += ["", f"`{goal}` is the negative average cost per flow, so higher is better."]
+    if goal.startswith("recall_at_fpr("):
+        lines += ["", f"`{goal}` is recall when the false alarm rate is within the cap, else minus the rate."]
+    sc = a.get("stage_cost")
+    if sc:
+        lines += [
+            "",
+            "## Stage cost",
+            "",
+            (
+                "Share of TEST flows reaching each stage, measured scoring time, and the declared cost "
+                "(`cost:` on the stage, 1 when not set). Expected cost per flow is the sum over stages of "
+                "share reaching times declared cost."
+            ),
+            "",
+            "| stage | flows reaching | ms per 1,000 flows | declared cost |",
+            "|---|---|---|---|",
+        ]
+        for st, row in sc["stages"].items():
+            reach, ms = _fmt(row["reach_share"]), _fmt_opt(row["ms_per_1k"])
+            lines.append(f"| {st} | {reach} | {ms} | {row['declared_cost']:g} |")
+        lines += [
+            "",
+            (
+                f"- expected cost per flow: cascade {_fmt(sc['cascade_cost'])}, "
+                f"first stage alone {sc['first_stage_cost']:g}"
+            ),
+            (
+                f"- expected scoring time per 1,000 flows: cascade {_fmt(sc['cascade_ms_per_1k'])} ms, "
+                f"first stage alone {_fmt_opt(sc['first_stage_ms_per_1k'])} ms"
+            ),
+        ]
     jc = a.get("joint_check")
     if jc:
         lines += [
@@ -340,6 +377,45 @@ def to_markdown(a: dict) -> str:
     return "\n".join(lines)
 
 
+def stage_cost(summaries: list[dict], cfg: Config) -> dict | None:
+    """Per stage: share of TEST flows reaching it and scoring time, mean over runs; expected cost per
+    flow from the declared costs of the current config (so a cost change needs only a new report)."""
+    rows: list[dict] = [s["stage_cost"] for s in summaries if s.get("stage_cost")]
+    if len(rows) != len(summaries):
+        return None  # runs from a version before stage cost was recorded
+    first = cfg.controls.first_stage
+    stages: dict[str, dict] = {}
+    cascade_cost, cascade_ms = [], []
+    for row in rows:
+        total_cost, total_ms = 0.0, 0.0
+        for st, r in row.items():
+            declared = cfg.stages[st].cost if st in cfg.stages else 1.0
+            total_cost += r["reach_share"] * declared
+            if r["ms_per_1k"] is not None:
+                total_ms += r["reach_share"] * r["ms_per_1k"]
+            d = stages.setdefault(st, {"reach": [], "ms": [], "declared_cost": declared})
+            d["reach"].append(r["reach_share"])
+            if r["ms_per_1k"] is not None:
+                d["ms"].append(r["ms_per_1k"])
+        cascade_cost.append(total_cost)
+        cascade_ms.append(total_ms)
+    first_ms = [r[first]["ms_per_1k"] for r in rows if first in r and r[first]["ms_per_1k"] is not None]
+    return {
+        "stages": {
+            st: {
+                "reach_share": _ms(d["reach"]),
+                "ms_per_1k": _ms(d["ms"]) if d["ms"] else None,
+                "declared_cost": d["declared_cost"],
+            }
+            for st, d in stages.items()
+        },
+        "cascade_cost": _ms(cascade_cost),
+        "first_stage_cost": cfg.stages[first].cost,
+        "cascade_ms_per_1k": _ms(cascade_ms),
+        "first_stage_ms_per_1k": _ms(first_ms) if first_ms else None,
+    }
+
+
 def write_report(
     run_root: str, cfg: Config, extra_seeds: Collection[int] = (), data_fps: dict[str, str] | None = None
 ) -> tuple[str, str]:
@@ -356,6 +432,7 @@ def write_report(
         raise FileNotFoundError(f"no finished seeds of this config under {mode_dir}")
     agg = aggregate(summaries)
     agg["seeds_left_out"] = left_out
+    agg["stage_cost"] = stage_cost(summaries, cfg)
     md_path = os.path.join(run_root, cfg.name, "report.md")
     json_path = os.path.join(run_root, cfg.name, "report.json")
     with open(md_path, "w", encoding="utf-8") as f:

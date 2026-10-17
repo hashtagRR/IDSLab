@@ -355,10 +355,14 @@ def run_seed(
     extra = {"joint_check": joint["state"]} if joint and "state" in joint else {}
     # TEST features are scored only now, and only for the candidates that are on
     test_scores: dict[str, dict[int, Any]] = {}
+    score_seconds: dict[str, float] = {}  # TEST scoring time of each stage's chosen candidate
     for st_map in (sel.state, *extra.values()):
         for s, st in st_map.items():
             if not st.off and st.candidate is not None and st.candidate not in test_scores.get(s, {}):
+                t_score = time.perf_counter()
                 test_scores.setdefault(s, {})[st.candidate] = provider.test(s, st.candidate)
+                if s in sel.state and st is sel.state[s]:
+                    score_seconds[s] = time.perf_counter() - t_score
 
     y_test = table.y[split.test]  # first use of TEST labels, after the freeze
     types_test = None if table.types is None else table.types[split.test].astype(str)
@@ -384,6 +388,18 @@ def run_seed(
     )
     if joint is not None:
         controls["joint_check"] = {k: v for k, v in joint.items() if k != "state"}
+    n_test = len(split.test)
+    stage_cost = {
+        s: {
+            "reach_share": float(routing.reach[s].mean()) if n_test else 0.0,
+            # a pool detector is fitted and scored inside routing, so its time is not separable here
+            "ms_per_1k": None
+            if cfg.stages[s].transductive or s not in score_seconds or not n_test
+            else round(score_seconds[s] / n_test * 1e6, 4),
+        }
+        for s in order
+        if not sel.state[s].off
+    }
 
     active = active_scores(test_scores, sel.state)
     flow = pd.DataFrame({"row_id": table.row_id[split.test], "y": y_test})
@@ -433,6 +449,7 @@ def run_seed(
         "selection_trace": sel.trace,
         "frozen_configuration": frozen,
         "controls": controls,
+        "stage_cost": stage_cost,
         "statements": STATEMENTS
         + (
             [POOL_STATEMENT]

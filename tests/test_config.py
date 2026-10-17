@@ -106,7 +106,7 @@ def test_search_mode_and_joint_limit():
     assert cfg.protocol.search == "joint"
     assert cfg.protocol.joint_max == 200
     raw["protocol"] = {"search": "exhaustive"}
-    assert "greedy or joint" in errors(raw)
+    assert "one of greedy, joint, greedy_fixed" in errors(raw)
 
 
 def test_external_candidates_are_checked():

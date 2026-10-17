@@ -11,6 +11,7 @@ from __future__ import annotations
 from html import escape
 
 from idslab.config import TERMINALS, Config
+from idslab.metrics import shown
 
 KIND_CLASS = {"classifier": "k-clf", "multiclass": "k-mc", "detector": "k-det"}
 NODE_W, NODE_H, COL, GAP = 236, 74, 316, 26
@@ -153,15 +154,41 @@ def cascade_map(cfg: Config, agg: dict) -> str:
 
 def _systems_table(agg: dict) -> str:
     goal = agg["objective"]
-    cols = ("accuracy", "recall", "fpr", "precision", "f1", "mcc", "balanced_accuracy")
+    cols = shown(goal)
     head = "".join(f"<th>{escape(c)}</th>" for c in cols)
     body = []
     for name, m in agg["systems_test"].items():
         mean = (m.get(goal) or {}).get("mean")
-        bar = f'<span class="bar" style="width:{max(0.0, min(1.0, mean)) * 90:.0f}px"></span>' if mean else ""
+        bar = (
+            f'<span class="bar" style="width:{max(0.0, min(1.0, mean)) * 90:.0f}px"></span>'
+            if mean and mean > 0
+            else ""
+        )
         cells = "".join(f"<td>{escape(_f(m.get(c)))}</td>" for c in cols)
         body.append(f"<tr><td>{escape(name)}{bar}</td>{cells}</tr>")
     return f'<div class="scroll"><table><tr><th>system</th>{head}</tr>{"".join(body)}</table></div>'
+
+
+def _stage_cost(agg: dict) -> str:
+    sc = agg.get("stage_cost")
+    if not sc:
+        return ""
+    rows = "".join(
+        f"<tr><td>{escape(st)}</td><td>{escape(_f(r['reach_share'], 3))}</td>"
+        f"<td>{escape(_f(r['ms_per_1k'], 3)) if r['ms_per_1k'] else 'n/a'}</td><td>{r['declared_cost']:g}</td></tr>"
+        for st, r in sc["stages"].items()
+    )
+    first_ms = sc["first_stage_ms_per_1k"]
+    return (
+        '<section><h2>Stage cost</h2><p class="muted">Share of TEST flows reaching each stage, measured '
+        "scoring time, and the declared cost (<code>cost:</code> on the stage, 1 when not set).</p>"
+        '<div class="scroll"><table><tr><th>stage</th><th>flows reaching</th><th>ms per 1,000 flows</th>'
+        f"<th>declared cost</th></tr>{rows}</table></div>"
+        f"<p>Expected cost per flow: cascade <b>{escape(_f(sc['cascade_cost'], 3))}</b>, first stage alone "
+        f"<b>{sc['first_stage_cost']:g}</b>. Scoring time per 1,000 flows: cascade "
+        f"{escape(_f(sc['cascade_ms_per_1k'], 3))} ms, first stage alone "
+        f"{escape(_f(first_ms, 3)) if first_ms else 'n/a'} ms.</p></section>"
+    )
 
 
 def _heat(value: float | None, *, signed: bool = False) -> str:
@@ -277,6 +304,7 @@ def render(cfg: Config, agg: dict) -> str:
 chose, and the change in {escape(goal)} when it is switched off. Dashed: off in every run.</p>
 <div class="scroll" style="padding:10px">{cascade_map(cfg, agg)}</div></section>
 <section><h2>Systems on TEST</h2>{_systems_table(agg)}</section>
+{_stage_cost(agg)}
 {_unseen_grid(agg)}
 {_types(agg)}
 {joint}

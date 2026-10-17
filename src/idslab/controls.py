@@ -18,6 +18,7 @@ from idslab.config import Config
 from idslab.graph import Routing, StageState, recorded_types, route, with_off
 from idslab.metrics import (
     binary_metrics,
+    metric_names,
     em_prior,
     frontier_ci,
     frontier_gap,
@@ -91,7 +92,7 @@ def evaluate(
     for name, st_map in (extra_states or {}).items():
         preds[name] = run(dict(st_map), test_scores, n_test).verdict
 
-    systems = {name: binary_metrics(y_test, p) for name, p in preds.items()}
+    systems = {name: binary_metrics(y_test, p, goal) for name, p in preds.items()}
     frontier = frontier_gap(y_test, p1_test, cascade)
     frontier["ci95_interp"] = (
         frontier_ci(y_test, p1_test, cascade, cfg.controls.frontier_bootstrap, seed)
@@ -99,7 +100,9 @@ def evaluate(
         else None
     )
     boot = {
-        name: paired_bootstrap(y_test, cascade, preds[name], n=cfg.controls.bootstrap, seed=seed + i)
+        name: paired_bootstrap(
+            y_test, cascade, preds[name], n=cfg.controls.bootstrap, seed=seed + i, names=metric_names(goal)
+        )
         for i, name in enumerate(preds)
         if name != "cascade"
     }
@@ -109,13 +112,13 @@ def evaluate(
         if state[s].off:
             continue
         p = run(with_off(state, [s]), test_scores, n_test).verdict
-        m = binary_metrics(y_test, p)
+        m = binary_metrics(y_test, p, goal)
         removal[s] = {"metrics": m, f"cascade_minus_removed_{goal}": systems["cascade"][goal] - m[goal]}
 
     prefix = []
     for k in range(len(order) + 1):
         st_k = {s: (state[s] if i < k else replace(state[s], off=True)) for i, s in enumerate(order)}
-        m = binary_metrics(y_test, run(st_k, test_scores, n_test).verdict)
+        m = binary_metrics(y_test, run(st_k, test_scores, n_test).verdict, goal)
         prefix.append({"stages_on": [s for s in order[:k] if not state[s].off], goal: m[goal], "metrics": m})
     for k in range(1, len(prefix)):
         prefix[k][f"step_{goal}"] = prefix[k][goal] - prefix[k - 1][goal]
@@ -132,7 +135,7 @@ def evaluate(
         "objective": goal,
         "first_stage": first,
         "systems_test": systems,
-        "cascade_val": binary_metrics(y_val, cascade_val),
+        "cascade_val": binary_metrics(y_val, cascade_val, goal),
         "b1_threshold": fs.threshold,
         "b2_val_cutoff": b2_cut,
         "budget_matched": {

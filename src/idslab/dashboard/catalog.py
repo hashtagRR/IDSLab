@@ -11,12 +11,10 @@ from __future__ import annotations
 
 import importlib.util
 import inspect
-import logging
 from typing import Any
 
 from idslab.config import EXTRAS, import_class
-
-logger = logging.getLogger(__name__)
+from idslab.plugins import load as load_plugins
 
 # (class path, short label, note)
 CLASSIFIERS = [
@@ -104,24 +102,13 @@ def _entry(path: str, label: str, note: str) -> dict:
 
 def plugin_entries() -> dict[str, list[tuple[str, str, str]]]:
     """Catalog entries from installed plugins (``idslab.plugins`` entry points), by section."""
-    from importlib.metadata import entry_points  # noqa: PLC0415
-
-    found: dict[str, list[tuple[str, str, str]]] = {"classifier": [], "detector": [], "step": []}
-    for ep in entry_points(group="idslab.plugins"):
-        try:
-            spec = ep.load()()
-        except Exception:  # a broken plugin must not break the catalog
-            logger.warning("plugin %s could not be loaded", ep.name, exc_info=True)
-            continue
-        if not isinstance(spec, dict):
-            continue
-        for section, items in found.items():
-            for item in spec.get(section, []):
-                if isinstance(item, dict) and isinstance(item.get("class"), str):
-                    items.append(
-                        (item["class"], str(item.get("label", item["class"])), str(item.get("note", "")))
-                    )
-    return found
+    loaded = load_plugins()
+    return {
+        section: [
+            (i["class"], str(i.get("label", i["class"])), str(i.get("note", ""))) for i in loaded[section]
+        ]
+        for section in ("classifier", "detector", "step")
+    }
 
 
 def catalog() -> dict[str, Any]:

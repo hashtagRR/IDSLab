@@ -5,6 +5,17 @@ the config, data and IDSLab version fingerprints match.
 
 ## Unreleased
 
+- Cost objectives: `protocol.objective: {cost: {missed_attack: A, false_alarm: B}}` chooses on VAL by
+  the lowest average cost per flow; `{recall_at_fpr: X}` by the highest recall within a false alarm
+  cap. The objective appears as its own column in every report.
+- Stage cost: each run records the share of TEST flows reaching every stage and its scoring time; a
+  stage may declare `cost:`. Reports add the expected cost per flow of the cascade against its first
+  stage alone.
+- `protocol.search: greedy_fixed`: later stages with a fixed decision stay on while earlier stages are
+  judged. On the synthetic R2 example it raised VAL and TEST accuracy in each of 3 seeds.
+- Plugins through the entry point group `idslab.plugins`: models and pipeline steps for the builder
+  catalog, and named objectives.
+- The builder offers these settings (objective, search, declared cost).
 - Visual pipeline builder in the dashboard: drag stages onto a canvas, wire outputs to stages or
   terminals, drag score edges for features, and edit every stage setting in a panel (models from a
   catalog with parameter forms, search spaces, pipeline steps, decisions, training rows). A dataset

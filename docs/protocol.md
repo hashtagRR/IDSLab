@@ -59,6 +59,9 @@ a stage that would help together with a later one. An off stage means "not chose
 not "cannot help". Set `protocol.search: joint` to measure this: the check evaluates every combination
 of decision values and reports the best one as the system `joint_check`.
 
+`protocol.search: greedy_fixed` judges each stage with the later fixed stages on instead of off; on the
+synthetic R2 example it raised VAL and TEST accuracy in each of 3 seeds ([config reference](config-reference.md#greedy-with-fixed-stages-on)).
+
 ## Systems on TEST
 
 After the freeze, every system below is scored on TEST with the same fitted first-stage model:
@@ -102,6 +105,14 @@ full cascade.
 
 **Prevalence check.** Attack share in FIT, VAL and TEST, and an EM estimate of the TEST share from the
 calibrated first-stage scores (Saerens et al., 2002). The estimate assumes label shift only.
+
+## Stage cost
+
+Every run records, per stage, the share of TEST flows that reach it and the time to score TEST with
+its chosen candidate (per 1,000 flows; not separable for detectors refitted on each batch). The report
+adds the expected cost per flow of the cascade, the sum over stages of share reaching times the
+declared cost (`cost:` on the stage, 1 when not set), against the first stage alone. With every cost
+at 1 it is the average number of stages a flow passes through.
 
 ## Unseen attacks
 

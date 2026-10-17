@@ -30,6 +30,7 @@ rewritten after every run (unless `--no-report`) and by `idslab report`.
 | `selection_trace`      | per stage in order: VAL rows reaching it, every option tried with its VAL objective, candidate AUCs, fallbacks, the choice |
 | `frozen_configuration` | per stage: off, or candidate, decision mode, value and threshold        |
 | `controls`             | systems on TEST, bootstrap intervals, frontier gap, budget-matched threshold, stage removal, prefix steps, prevalence, and in the other modes the unseen-attack block and type metrics |
+| `stage_cost`           | per stage that is on: share of TEST flows reaching it, scoring time per 1,000 flows |
 | `statements`           | the protocol statements printed in every report                         |
 | `runtime_seconds`      | wall time of the unit                                                   |
 

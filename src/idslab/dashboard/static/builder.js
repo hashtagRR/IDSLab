@@ -717,7 +717,8 @@ export async function builderView(view, meta, path, setCrumbs) {
     box.append(field("Uses scores of", el("div", {class: "row"}, feats.length ? feats.map((f) => badge(f, "amber")) : el("span", {class: "muted small", text: "none (drag a score port onto this stage)"}))));
     box.append(el("details", {class: "trace"}, el("summary", {text: "Selection"}), el("div", {class: "form-grid"},
       field("Choose candidates by", bound(s, "select_by", {options: [["", "default"], ["auc", "AUC, then tune"], ["objective", "objective, jointly"]]})),
-      field("Fewest VAL rows", bound(s, "min_val_rows", {type: "number", placeholder: "20"})))));
+      field("Fewest VAL rows", bound(s, "min_val_rows", {type: "number", placeholder: "20"})),
+      field("Declared cost per flow", bound(s, "cost", {type: "number", placeholder: "1 (reports only)"})))));
     return box;
   }
 
@@ -778,10 +779,12 @@ export async function builderView(view, meta, path, setCrumbs) {
     return card("Protocol", null, cardBody(el("div", {class: "stack"},
       el("div", {class: "form-grid"},
         field("Seeds", bound(p, "seeds", {parse: (v) => parseList(v).filter(Number.isInteger), placeholder: "0, 1, 2, 3, 4"})),
-        field("Objective", bound(p, "objective", {options: [["", "accuracy"], ...meta.objectives.filter((o) => o !== "accuracy")]})),
+        objectiveField(p),
         field("Mode", bound(p, "mode", {options: [["", "standard"], ["heldout_family", "held-out family"], ["natural_novelty", "natural novelty"]],
           onSet: () => { if (p.mode !== "heldout_family") { delete p.families; delete p.family_level; } if (p.mode !== "natural_novelty") delete p.novel_types; }})),
-        field("Search", bound(p, "search", {options: [["", "greedy"], ["joint", "greedy plus joint check"]]}))),
+        field("Search", bound(p, "search", {options: [["", "greedy"], ["greedy_fixed", "greedy, fixed later stages on"],
+          ["joint", "greedy plus joint check"]]}))),
+      costFields(p),
       mode === "heldout_family" ? field("Families to hold out", bound(p, "families", {parse: (v) => v.split(/[,\s]+/).filter(Boolean), placeholder: "all attack families"})) : null,
       mode === "natural_novelty" ? field("Novel types (TEST only)", bound(p, "novel_types", {parse: (v) => v.split(/[,\s]+/).filter(Boolean)})) : null,
       el("details", {class: "trace"}, el("summary", {text: "Fractions, folds and size"}), el("div", {class: "form-grid"},
@@ -790,6 +793,41 @@ export async function builderView(view, meta, path, setCrumbs) {
         field("Out-of-fold folds", bound(p, "oof_folds", {type: "number", placeholder: "3"})),
         field("Cores per fit", bound(p, "n_jobs", {type: "number", placeholder: "1"})),
         field("Subsample train rows", subsampleInput(p)))))));
+  }
+
+  // objective: a metric name, {cost: {missed_attack, false_alarm}} or {recall_at_fpr: x}
+  function objectiveField(p) {
+    const cur = p.objective;
+    const kind = typeof cur === "object" && cur ? Object.keys(cur)[0] : (cur || "accuracy");
+    const sel = el("select", {class: "select"},
+      [...meta.objectives, "cost", "recall_at_fpr"].map((o) => el("option", {value: o, text: {
+        cost: "cost of errors", recall_at_fpr: "recall at a false alarm cap"}[o] || o})));
+    sel.value = kind;
+    sel.addEventListener("change", () => {
+      const v = sel.value;
+      if (v === "accuracy") delete p.objective;
+      else if (v === "cost") p.objective = {cost: {missed_attack: 10, false_alarm: 1}};
+      else if (v === "recall_at_fpr") p.objective = {recall_at_fpr: 0.01};
+      else p.objective = v;
+      changed();
+    });
+    return field("Objective", sel);
+  }
+  function costFields(p) {
+    const cur = p.objective;
+    if (cur?.cost) {
+      const c = cur.cost;
+      return el("div", {class: "form-grid"},
+        field("Cost of a missed attack", bound(c, "missed_attack", {type: "number"})),
+        field("Cost of a false alarm", bound(c, "false_alarm", {type: "number"})),
+        el("div", {class: "muted small", text: "Choices on VAL minimise the average cost per flow."}));
+    }
+    if (cur?.recall_at_fpr != null) {
+      return el("div", {class: "form-grid"},
+        field("Highest false alarm rate allowed", bound(cur, "recall_at_fpr", {type: "number"})),
+        el("div", {class: "muted small", text: "Choices on VAL maximise recall among options within the cap."}));
+    }
+    return null;
   }
 
   function subsampleInput(p) {

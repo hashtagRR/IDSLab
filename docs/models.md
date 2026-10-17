@@ -93,6 +93,35 @@ candidates:
 PYTHONPATH=examples idslab run config.yaml     # the module must be importable
 ```
 
+## Plugins
+
+A package can add models, pipeline steps and objectives without changes to IDSLab, through the entry
+point group `idslab.plugins`:
+
+```toml
+# pyproject.toml of your package
+[project.entry-points."idslab.plugins"]
+mytool = "mytool.idslab:plugin"
+```
+
+```python
+# mytool/idslab.py
+def plugin():
+    return {
+        "classifier": [{"class": "mytool.models.FlowNet", "label": "FlowNet", "note": "needs a GPU"}],
+        "detector": [],
+        "step": [{"class": "mytool.prep.LogScale", "label": "Log scale"}],
+        "objectives": {
+            # higher is better; tp, fp, tn, fn are NumPy arrays that broadcast
+            "weighted_recall": lambda tp, fp, tn, fn: tp / (tp + fn + 1e-12) - 0.5 * fp / (fp + tn + 1e-12),
+        },
+    }
+```
+
+Catalog entries appear in the dashboard builder; the classes work in configs like any other class
+path. Objectives are used by name: `protocol.objective: weighted_recall`. A plugin that fails to load is
+logged and skipped.
+
 ## Scores made elsewhere
 
 A model trained outside IDSLab, for example a CNN on a GPU machine, enters a stage through a score
