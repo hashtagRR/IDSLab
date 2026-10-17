@@ -161,9 +161,162 @@ export function note(text, cls = "info") {
 }
 
 export function toast(text) {
-  const t = el("div", {class: "toast", role: "status", text});
+  const t = el("div", {class: "toast", text});
   document.body.append(t);
+  announce(text);
   setTimeout(() => t.remove(), 3200);
+}
+
+// Text for screen readers: one polite live region in index.html, refilled per message.
+export function announce(text) {
+  const live = document.getElementById("live");
+  if (!live) return;
+  live.textContent = "";
+  setTimeout(() => { live.textContent = text; }, 30);
+}
+
+// Redraw part of a page after the browser has moved focus (a change event fires before Tab moves
+// on), then put focus back on the element in the same place, so keyboard users keep their spot.
+const FOCUSABLE = "a[href],button,input,select,textarea,summary,[tabindex]";
+export function rerender(container, render) {
+  setTimeout(() => {
+    const a = document.activeElement;
+    let id = null, idx = -1;
+    if (a && a !== document.body && container.contains(a)) {
+      id = a.id || null;
+      idx = [...container.querySelectorAll(FOCUSABLE)].indexOf(a);
+    }
+    render();
+    const n = (id && container.querySelector(`#${CSS.escape(id)}`)) || (idx >= 0 ? container.querySelectorAll(FOCUSABLE)[idx] : null);
+    n?.focus({preventScroll: true});
+  }, 0);
+}
+
+// ---------- dialogs ----------
+
+// A modal dialog with focus kept inside; resolves with the value of the button pressed (or null).
+export function dialog(title, body, buttons, {initial = null} = {}) {
+  return new Promise((resolve) => {
+    const d = el("dialog", {class: "dialog", "aria-label": title});
+    const done = (v) => { d.close(); d.remove(); resolve(v); };
+    d.append(el("h3", {text: title}), el("div", {class: "dialog-body"}, body),
+      el("div", {class: "row dialog-actions"}, el("span", {class: "spacer"}), buttons.map(([label, value, cls]) =>
+        el("button", {class: `btn ${cls || ""}`, type: "button", text: label, onclick: () => done(typeof value === "function" ? value() : value)}))));
+    d.addEventListener("cancel", (e) => { e.preventDefault(); done(null); });
+    document.body.append(d);
+    d.showModal();
+    (initial ? d.querySelector(initial) : d.querySelector(".btn.primary") || d.querySelector("button"))?.focus();
+  });
+}
+export async function ask(title, text, okLabel = "Continue", cls = "primary") {
+  return (await dialog(title, el("p", {text}), [["Cancel", false], [okLabel, true, cls]])) === true;
+}
+export async function askPath(title, text, value) {
+  const input = el("input", {class: "input mono", value, "aria-label": "File path"});
+  const body = el("div", {class: "stack"}, el("p", {class: "small", text}), input);
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") body.closest("dialog").querySelector(".btn.primary").click(); });
+  const v = await dialog(title, body, [["Cancel", null], ["Save", () => input.value.trim(), "primary"]], {initial: "input"});
+  return v || null;
+}
+
+// ---------- plain labels ----------
+
+export const KIND = {
+  classifier: "Classifier (attack or benign)",
+  detector: "Anomaly detector (normal or anomalous)",
+  multiclass: "Type stage (names the attack type)",
+};
+export const KIND_SHORT = {classifier: "classifier", detector: "anomaly detector", multiclass: "type stage"};
+export const METRIC = {
+  accuracy: "Accuracy", balanced_accuracy: "Balanced accuracy", recall: "Detection rate (recall)",
+  precision: "Precision", f1: "F1", mcc: "MCC", fpr: "False-alarm rate (FPR)", auc: "AUC",
+};
+export const metricLabel = (k) => METRIC[k] || (String(k).startsWith("cost(") ? "Average cost per flow"
+  : String(k).startsWith("recall_at_fpr(") ? `Recall at a false-alarm cap of ${String(k).slice(14, -1)}` : pretty(k));
+export const STATE = {
+  draft: ["", "Draft"], needs_data: ["amber", "Data missing"], invalid: ["red", "Needs fixing"],
+  running: ["blue", "Running"], partial: ["amber", "Unfinished"], completed: ["green", "Completed"],
+};
+export function expBadge(state) {
+  const [cls, label] = STATE[state] || ["", state];
+  return el("span", {class: `badge ${cls}`}, el("span", {class: "dot" + (state === "running" ? " pulse" : "")}), label);
+}
+
+// Objective-aware numbers. Rates read as percentages and their differences as percentage points;
+// a cost objective is stored as the negative average cost, so it is shown as a positive cost.
+const RATES = new Set(["accuracy", "balanced_accuracy", "recall", "precision", "f1", "fpr"]);
+export function objective(goal) {
+  const g = String(goal || "");
+  const isCost = g.startsWith("cost(");
+  const isRate = RATES.has(g) || g.startsWith("recall_at_fpr(");
+  const num = (v, d = 4) => (v == null ? "n/a" : v.toFixed(d));
+  return {
+    label: metricLabel(g),
+    isCost, isRate,
+    value: (v) => (v == null ? "n/a" : isCost ? num(-v) : isRate ? `${(v * 100).toFixed(2)}%` : num(v)),
+    diff: (d) => {
+      if (d == null) return "n/a";
+      if (isCost) return d === 0 ? "no change in cost" : `${num(Math.abs(d))} ${d > 0 ? "lower" : "higher"} cost per flow`;
+      if (isRate) return `${d > 0 ? "+" : ""}${(d * 100).toFixed(2)} percentage points`;
+      return `${d > 0 ? "+" : ""}${num(d)}`;
+    },
+    short: (d) => (d == null ? "n/a" : isRate ? `${d > 0 ? "+" : ""}${(d * 100).toFixed(2)} pp`
+      : isCost ? `${d > 0 ? "-" : "+"}${num(Math.abs(d))} cost` : `${d > 0 ? "+" : ""}${num(d)}`),
+  };
+}
+
+// ---------- errors in plain words ----------
+
+// Config errors as people read them. The loader's own line stays available next to it.
+export function plainError(line) {
+  let m;
+  if ((m = /^stage (\S+): routes must cover exactly \[(.*?)\] \(got \[(.*?)\]\)/.exec(line))) {
+    const need = m[2].split(",").map((x) => x.trim().replace(/'/g, "")).filter(Boolean);
+    const got = new Set(m[3].split(",").map((x) => x.trim().replace(/'/g, "")).filter(Boolean));
+    const miss = need.filter((x) => !got.has(x));
+    if (miss.length) return `${m[1]}: the ${miss.join(" and ")} output${miss.length > 1 ? "s have" : " has"} no destination. Choose a stage, ATTACK or BENIGN.`;
+  }
+  if ((m = /^stage (\S+): an annotate stage needs 'next'/.exec(line))) return `${m[1]}: choose where every flow goes after the type is named (a stage, ATTACK or BENIGN).`;
+  if ((m = /^stages not reachable from the entry stage: \[(.*)\]/.exec(line))) return `${m[1].replace(/'/g, "")}: no route leads here from the entry stage. Send an output to it, or remove it.`;
+  if ((m = /^routing cycle: (.+)$/.exec(line))) return `The routes loop back: ${m[1].replace(/ -> /g, " to ")}. Point one of these outputs to a later stage or a terminal.`;
+  if ((m = /^dataset: give exactly one of 'test'/.exec(line))) return "Data: choose a test file, or hold out a share of the training file as TEST, not both.";
+  if ((m = /^dataset: give 'label', 'type', or both/.exec(line))) return "Data: choose the label column, the type column, or both.";
+  if ((m = /^protocol.seeds: give a non-empty list/.exec(line))) return "Evaluation: give at least one seed (one repeated run).";
+  return line;
+}
+// Which setup step an error line belongs to.
+export function errorStep(line) {
+  if (/^dataset/.test(line)) return "data";
+  if (/^(protocol|controls)/.test(line)) return "evaluation";
+  if (/^(stage |stages|entry|routing cycle|routes and score|chained score)/.test(line)) return "cascade";
+  if (/YAML|mapping/.test(line)) return "yaml";
+  return "review";
+}
+
+// ---------- line diff (for showing what a rewrite changes) ----------
+
+export function lineDiff(a, b) {
+  const x = a.split("\n"), y = b.split("\n");
+  const n = x.length, m = y.length;
+  if (n * m > 4_000_000) return [...x.map((t) => ["-", t]), ...y.map((t) => ["+", t])];
+  const L = Array.from({length: n + 1}, () => new Uint32Array(m + 1));
+  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) {
+    L[i][j] = x[i] === y[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+  }
+  const out = [];
+  let i = 0, j = 0;
+  while (i < n && j < m) {
+    if (x[i] === y[j]) { out.push([" ", x[i]]); i++; j++; }
+    else if (L[i + 1][j] >= L[i][j + 1]) out.push(["-", x[i++]]);
+    else out.push(["+", y[j++]]);
+  }
+  while (i < n) out.push(["-", x[i++]]);
+  while (j < m) out.push(["+", y[j++]]);
+  return out;
+}
+export function diffView(rows) {
+  return el("pre", {class: "code diff"}, rows.filter((r, k) => r[0] !== " " || rows.slice(Math.max(0, k - 2), k + 3).some((z) => z[0] !== " "))
+    .map(([t, line]) => el("span", {class: t === "-" ? "del" : t === "+" ? "add" : null}, `${t} ${line}\n`)));
 }
 
 export function field(label, input, hint) {
@@ -216,6 +369,6 @@ export async function startJob(body) {
   job.snapshot = snap;
   notify(snap);
   pollJob();
-  location.hash = "#/job";
+  location.hash = "#/jobs";
   return snap;
 }

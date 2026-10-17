@@ -188,6 +188,36 @@ class Config:
         blob = json.dumps(raw, sort_keys=True, default=str).encode()
         return hashlib.sha256(blob).hexdigest()
 
+    def outline(self) -> dict:
+        """The cascade's structure as data: stages in selection order with their routes, decisions
+        and score sources. Run units store it so a finished run can be drawn later even after the
+        config file has changed."""
+        stages = []
+        for name in self.order():
+            st = self.stages[name]
+            stages.append(
+                {
+                    "name": name,
+                    "kind": st.kind,
+                    "role": st.role,
+                    "decision": st.decision.mode,
+                    "values": list(st.decision.values),
+                    "tunable": st.decision.tunable,
+                    "off": st.decision.off,
+                    "fit_on": st.fit_on,
+                    "candidates": [c.label for c in st.candidates],
+                    "routes": {k: v for k, v in st.routes.items() if isinstance(v, str)},
+                    "sources": list(self.sources(name)),
+                }
+            )
+        return {
+            "name": self.name,
+            "entry": self.entry,
+            "order": self.order(),
+            "stages": stages,
+            "first_stage": self.controls.first_stage,
+        }
+
     def path(self, p: str) -> str:
         return p if os.path.isabs(p) else os.path.normpath(os.path.join(self.base_dir, p))
 

@@ -8,12 +8,13 @@ path parts are refused, so ``.git``, ``.venv`` and dot files are never read or w
 
 from __future__ import annotations
 
+import datetime
 import json
 import os
 import re
 from typing import Any
 
-from idslab.config import MODES, Config, ConfigError, parse_yaml
+from idslab.config import MODES, Config, ConfigError, from_dict, parse_yaml
 
 SKIP_DIRS = {"__pycache__", "node_modules", "venv", "site-packages"}
 MAX_DEPTH = 6
@@ -39,6 +40,7 @@ class Workspace:
         self.root = os.path.realpath(root)
         if not os.path.isdir(self.root):
             raise PathError(f"workspace {root} is not a folder")
+        self._loaded: dict[str, tuple[tuple[float, int], dict]] = {}  # config path: (stamp, record)
 
     # ---------- paths ----------
 
@@ -193,6 +195,14 @@ class Workspace:
         stamps = [u["finished"] for u in units if u["finished"]]
         files = [os.path.join(exp, n) for n in ("report.json", "report.html")]
         mtimes = [os.path.getmtime(p) for p in files if os.path.exists(p)]
+        report_files = {
+            ext: os.path.exists(os.path.join(exp, f"report.{ext}")) for ext in ("md", "json", "html")
+        }
+        report_json = os.path.join(exp, "report.json")
+        report_mtime = os.path.getmtime(report_json) if report_files["json"] else None
+        done_mtimes = [u["done_mtime"] for u in units if u["done_mtime"] is not None]
+        in_report = len(report.get("units") or []) if isinstance(report, dict) else 0
+        n_done = sum(u["done"] for u in units)
         return {
             "path": self.rel(exp),
             "name": os.path.basename(exp),
@@ -203,6 +213,15 @@ class Workspace:
             "updated": max([*mtimes, *(u["mtime"] for u in units)], default=None),
             "has_report": os.path.exists(os.path.join(exp, "report.html")),
             "report": head,
+            "report_files": report_files,
+            "report_mtime": report_mtime,
+            "report_units": in_report,
+            # finished units the report does not include yet, or units finished after it was written
+            "report_behind": bool(
+                report_mtime is not None
+                and (in_report < n_done or any(t > report_mtime + 1 for t in done_mtimes))
+            ),
+            "config_fingerprints": sorted({u["config_fp"] for u in units if u["config_fp"]}),
         }
 
     def experiment(self, rel: str) -> dict:
@@ -227,6 +246,176 @@ class Workspace:
         if not isinstance(summary, dict):
             raise PathError(f"{rel}: no summary.json")
         return {"path": self.rel(d), "summary": summary, "done": _read_json(os.path.join(d, "DONE"))}
+
+    # ---------- experiments: a config and the outputs it wrote ----------
+
+    def config_record(self, rel: str) -> dict:
+        """A config with what the experiment list needs: name, validity, fingerprint, data paths.
+        Loading imports the model classes, so records are kept until the file changes."""
+        path = self.resolve(rel, kind="file")
+        st = os.stat(path)
+        stamp = (st.st_mtime, st.st_size)
+        hit = self._loaded.get(path)
+        if hit and hit[0] == stamp:
+            return hit[1]
+        rec: dict[str, Any] = {"path": self.rel(path), "mtime": st.st_mtime, "fingerprint": None}
+        try:
+            text = self.config_text(rel)
+            raw = parse_yaml(text)
+            rec["name"] = str(raw.get("name", "")) if isinstance(raw, dict) else ""
+            cfg = from_dict(raw, base_dir=os.path.dirname(path))
+        except (ConfigError, ImportError, ValueError) as e:
+            rec.update(valid=False, error=str(e), data=[])
+        else:
+            rec.update(
+                valid=True,
+                error=None,
+                name=cfg.name,
+                fingerprint=cfg.fingerprint(),
+                stages=len(cfg.stages),
+                mode=cfg.protocol.mode,
+                seeds=list(cfg.protocol.seeds),
+                data=[
+                    {
+                        "role": role,
+                        "path": f,
+                        "file": self._rel_or_none(cfg.path(f)),
+                        "exists": os.path.isfile(cfg.path(f)),
+                    }
+                    for role, f in (("train", cfg.dataset.train), ("test", cfg.dataset.test))
+                    if f is not None
+                ],
+            )
+        self._loaded[path] = (stamp, rec)
+        return rec
+
+    def _rel_or_none(self, path: str) -> str | None:
+        real = os.path.realpath(path)
+        try:
+            inside = os.path.commonpath([real, self.root]) == self.root
+        except ValueError:
+            inside = False
+        return self.rel(real) if inside else None
+
+    def experiment_index(self) -> list[dict]:
+        """Every config, with the run outputs it owns, and every run output no config owns.
+
+        An output belongs to a config when the names match. When several configs share the
+        name, the config fingerprints recorded by the output's finished units must match exactly
+        one of them; otherwise the output is listed on its own with the reason, never guessed."""
+        configs = [self.config_record(c["path"]) for c in self.configs()]
+        outputs = self.experiments()
+        by_name: dict[str, list[dict]] = {}
+        for c in configs:
+            by_name.setdefault(c.get("name") or "", []).append(c)
+        owned: dict[str, list[dict]] = {c["path"]: [] for c in configs}
+        alone = []
+        for o in outputs:
+            cands = by_name.get(o["name"], [])
+            owner = cands[0] if len(cands) == 1 else None
+            if len(cands) > 1:
+                match = [c for c in cands if c["fingerprint"] in o["config_fingerprints"]]
+                owner = match[0] if len(match) == 1 else None
+            if owner is not None:
+                owned[owner["path"]].append(o)
+                continue
+            if cands:
+                reason = (
+                    f"configs {', '.join(c['path'] for c in cands)} share the name {o['name']}, and the "
+                    "finished units do not match exactly one of them"
+                )
+            else:
+                reason = f"no config in the workspace is named {o['name']}"
+            alone.append(
+                {
+                    "key": "o:" + o["path"],
+                    "kind": "output",
+                    "name": o["name"],
+                    "config": None,
+                    "record": None,
+                    "outputs": [o],
+                    "reason": reason,
+                    "candidates": [c["path"] for c in cands],
+                }
+            )
+        out = []
+        for c in configs:
+            outs = owned[c["path"]]
+            out.append(
+                {
+                    "key": "c:" + c["path"],
+                    "kind": "config",
+                    "name": c.get("name") or "",
+                    "config": c["path"],
+                    "record": c,
+                    "outputs": outs,
+                    "reason": None,
+                    "candidates": [],
+                }
+            )
+        out += alone
+        for e in out:
+            e["updated"] = max(
+                [*(o["updated"] or 0 for o in e["outputs"]), (e["record"] or {}).get("mtime") or 0]
+            )
+            e["state"] = _state(e)
+            e["changed_since_run"] = bool(
+                e["record"]
+                and e["record"]["fingerprint"]
+                and e["outputs"]
+                and e["record"]["fingerprint"] not in e["outputs"][0]["config_fingerprints"]
+                and e["outputs"][0]["config_fingerprints"]
+            )
+        return sorted(out, key=lambda e: e["updated"], reverse=True)
+
+    def history(self, limit: int = 200) -> list[dict]:
+        """Past activity read from files: finished units, reports and comparisons, newest first.
+        This is what the workspace holds, not a log of dashboard jobs."""
+        events = []
+        for d, _dirs, files in self._walk():
+            if "DONE" in files:
+                done = _read_json(os.path.join(d, "DONE"))
+                when = _epoch(done.get("finished")) if isinstance(done, dict) else None
+                parts = self.rel(d).split("/")
+                fam = parts[-1][4:] if parts[-1].startswith("fam_") else None
+                seed_part = parts[-2] if fam else parts[-1]
+                exp = "/".join(parts[: -3 if fam else -2])
+                events.append(
+                    {
+                        "time": when or os.path.getmtime(os.path.join(d, "DONE")),
+                        "kind": "unit",
+                        "path": self.rel(d),
+                        "experiment": exp,
+                        "label": seed_part.replace("_", " ") + (f", held out {fam}" if fam else ""),
+                    }
+                )
+            for name, kind in (("report.json", "report"), ("compare.json", "comparison")):
+                if name in files:
+                    events.append(
+                        {
+                            "time": os.path.getmtime(os.path.join(d, name)),
+                            "kind": kind,
+                            "path": self.rel(d),
+                            "experiment": self.rel(d),
+                            "label": kind,
+                        }
+                    )
+        events.sort(key=lambda e: e["time"], reverse=True)
+        return events[:limit]
+
+    def datasets(self) -> list[dict]:
+        """Data files with their size and the configs that read them."""
+        users: dict[str, list[str]] = {}
+        for c in self.configs():
+            rec = self.config_record(c["path"])
+            for dd in rec.get("data") or []:
+                if dd.get("file"):
+                    users.setdefault(dd["file"], []).append(c["path"])
+        out = []
+        for rel in self.data_files():
+            st = os.stat(self.resolve(rel))
+            out.append({"path": rel, "size": st.st_size, "mtime": st.st_mtime, "used_by": users.get(rel, [])})
+        return out
 
     # ---------- data files ----------
 
@@ -280,6 +469,28 @@ class Workspace:
         return {"path": self.rel(d), "entries": entries}
 
 
+def _epoch(stamp: Any) -> float | None:
+    try:
+        return datetime.datetime.fromisoformat(str(stamp)).timestamp()
+    except ValueError:
+        return None
+
+
+def _state(e: dict) -> str:
+    """Where an experiment stands, for the next action the page offers. Finished results come
+    before a missing data file, so moving the data never hides them."""
+    rec = e["record"]
+    outs = e["outputs"]
+    if rec is not None and not rec["valid"]:
+        return "invalid"
+    if outs:
+        o = outs[0]
+        return "completed" if o["has_report"] and o["units_done"] == o["units_total"] else "partial"
+    if rec is not None and any(not d["exists"] for d in rec["data"]):
+        return "needs_data"
+    return "draft"
+
+
 def _is_mode_dir(d: str, dirs: list[str]) -> bool:
     return os.path.basename(d) in MODES and any(_SEED.match(x) for x in dirs)
 
@@ -308,6 +519,8 @@ def _unit_row(d: str, mode: str, seed: int, family: str | None) -> dict:
         "family": family,
         "done": isinstance(done, dict),
         "finished": done.get("finished") if isinstance(done, dict) else None,
+        "done_mtime": os.path.getmtime(os.path.join(d, "DONE")) if isinstance(done, dict) else None,
+        "config_fp": ((done.get("fingerprints") or {}).get("config") if isinstance(done, dict) else None),
         "mtime": os.path.getmtime(d),
         "runtime_seconds": None,
         "objective": None,
@@ -435,31 +648,9 @@ def inspect_data(path: str) -> dict:
 
 def describe(cfg: Config) -> dict:
     """What ``idslab validate`` prints, as data, plus the routes for the cascade preview."""
-    stages = []
-    for name in cfg.order():
-        st = cfg.stages[name]
-        stages.append(
-            {
-                "name": name,
-                "kind": st.kind,
-                "role": st.role,
-                "decision": st.decision.mode,
-                "values": list(st.decision.values),
-                "tunable": st.decision.tunable,
-                "off": st.decision.off,
-                "fit_on": st.fit_on,
-                "candidates": [c.label for c in st.candidates],
-                "routes": {k: v for k, v in st.routes.items() if isinstance(v, str)},
-                "sources": list(cfg.sources(name)),
-            }
-        )
     p = cfg.protocol
     return {
-        "name": cfg.name,
-        "entry": cfg.entry,
-        "order": cfg.order(),
-        "stages": stages,
-        "first_stage": cfg.controls.first_stage,
+        **cfg.outline(),
         "protocol": {
             "mode": p.mode,
             "seeds": list(p.seeds),

@@ -475,7 +475,7 @@ On Windows replace `.venv/bin/` with `.\.venv\Scripts\`.
 | Message | Fix |
 |---|---|
 | `cannot import module 'xgboost' (install it with: pip install idslab[xgboost])` | install the named extra |
-| `Encode: non-numeric columns not listed in 'categorical'` | add the text columns to the `categorical` list of `idslab.prep.Encode` in that stage's pipeline (the builder's dataset panel does this from your data) |
+| `Encode: non-numeric columns not listed in 'categorical'` | add the text columns to the `categorical` list of `idslab.prep.Encode` in that stage's pipeline (the dashboard's Data step does this from your data) |
 | `train and test columns differ` | the two files need the same columns; drop extras with `dataset.drop` |
 | `row ids are not unique` | point `dataset.id_column` at a unique column, or remove it to use row numbers |
 | a run seems idle | progress lines appear as it works; with `--jobs` above 1 the worker processes do not log |

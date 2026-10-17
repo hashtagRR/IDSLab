@@ -10,6 +10,7 @@ the browser writes the same files, and resumes the same way, as one started in a
 from __future__ import annotations
 
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -30,6 +31,56 @@ DEFAULT_OUT = {
     "compare": "comparisons",
     "sweep": "runs",
 }
+
+
+_STAMP = re.compile(r"^\d\d:\d\d:\d\d ")
+_UNITS = re.compile(r"^(\d+) units? to run: ")
+_VARIANT = re.compile(r"^sweep \S+: variant (\d+) of (\d+), (\S+)")
+_UNIT_LINE = re.compile(r"^(seed -?\d+(?: family .+?)?): (.+)$")
+
+
+def progress(lines: list[str]) -> dict:
+    """What a job's own log says about its progress: the phase, the current unit and how many
+    units are finished. Nothing is estimated; a count that the log does not give stays None."""
+    out: dict[str, Any] = {
+        "phase": None,
+        "unit": None,
+        "units_total": None,
+        "units_done": 0,
+        "units_reused": 0,
+        "variant": None,
+        "variant_index": None,
+        "variants_total": None,
+    }
+    for raw in lines:
+        line = _STAMP.sub("", raw)
+        if m := _VARIANT.match(line):
+            out.update(variant=m.group(3), variants_total=int(m.group(2)), variant_index=int(m.group(1)))
+            out.update(units_total=None, units_done=0, units_reused=0, unit=None, phase="starting variant")
+        elif m := _UNITS.match(line):
+            out["units_total"] = int(m.group(1))
+            out["phase"] = "loading data"
+        elif m := _UNIT_LINE.match(line):
+            unit, rest = m.groups()
+            out["unit"] = unit
+            if rest.startswith("already done"):
+                out["units_done"] += 1
+                out["units_reused"] += 1
+                out["phase"] = "reused a finished unit"
+            elif rest.startswith("finished in"):
+                out["units_done"] += 1
+                out["phase"] = "unit finished"
+            elif rest == "started":
+                out["phase"] = "splitting and fitting"
+            elif rest.startswith("fitting stage"):
+                out["phase"] = rest
+            elif rest.startswith("frozen on VAL"):
+                out["phase"] = "selected on VAL"
+            elif rest.startswith("evaluating on TEST"):
+                out["phase"] = "evaluating on TEST"
+        elif line.startswith(("report: ", "comparison: ")):
+            out["phase"] = "writing the report" if line.startswith("report") else "comparison written"
+    return out
 
 
 class JobError(ValueError):
@@ -78,7 +129,7 @@ def build_command(ws: Workspace, body: dict) -> tuple[list[str], dict]:
         if command == "example":
             target = ws.resolve(body.get("directory") or "example")
             argv = ["example", _arg(ws, target), *(["--overwrite"] if body.get("overwrite") else [])]
-            return argv, {"command": command, "target": ws.rel(target), "target_kind": "folder"}
+            return argv, {"command": command, "target": ws.rel(target), "target_kind": "folder", "argv": argv}
         if command == "compare":
             return _compare_command(ws, body)
         if command == "sweep":
@@ -92,8 +143,11 @@ def build_command(ws: Workspace, body: dict) -> tuple[list[str], dict]:
     seeds = _seeds(body.get("seeds"))
     if seeds:
         argv += ["--seeds", *map(str, seeds)]
+    parallel = False
     if command == "run":
-        argv += ["--jobs", str(_jobs(body.get("jobs")))]
+        n_jobs = _jobs(body.get("jobs"))
+        parallel = n_jobs != 1
+        argv += ["--jobs", str(n_jobs)]
         if body.get("force"):
             argv.append("--force")
         if body.get("no_report"):
@@ -107,6 +161,8 @@ def build_command(ws: Workspace, body: dict) -> tuple[list[str], dict]:
         "config": ws.rel(config),
         "target": ws.rel(target),
         "target_kind": kind,
+        "parallel": parallel,
+        "argv": argv,
     }
 
 
@@ -133,7 +189,7 @@ def _compare_command(ws: Workspace, body: dict) -> tuple[list[str], dict]:
         raise JobError(str(e)) from None
     argv = ["compare", *(_arg(ws, p) for p in paths), "--out", _arg(ws, out)]
     argv += ["--bootstrap", str(_bootstrap(body.get("bootstrap")))]
-    return argv, {"command": "compare", "target": ws.rel(out), "target_kind": "folder"}
+    return argv, {"command": "compare", "target": ws.rel(out), "target_kind": "folder", "argv": argv}
 
 
 def _sweep_command(ws: Workspace, body: dict) -> tuple[list[str], dict]:
@@ -153,7 +209,10 @@ def _sweep_command(ws: Workspace, body: dict) -> tuple[list[str], dict]:
     if body.get("force"):
         argv.append("--force")
     target = os.path.join(out, sweep.name, "comparison")
+    parallel = _jobs(body.get("jobs")) != 1
     return argv, {
+        "parallel": parallel,
+        "argv": argv,
         "command": "sweep",
         "config": ws.rel(path),
         "target": ws.rel(target),
@@ -256,4 +315,19 @@ class Job:
             "now": time.time(),
             "log": log[-tail:] if tail else log,
             "log_lines": len(log),
+            "progress": progress(log),
+            "parallel": bool(self.info.get("parallel")),
+            "units_done_on_disk": self._done_on_disk(),
         }
+
+    def _done_on_disk(self) -> int | None:
+        """Units this job finished, counted from DONE files written since it started. Worker
+        processes of a parallel run do not log, so this is the count the page can show for them."""
+        if self.info.get("target_kind") != "experiment" or self.started_at is None:
+            return None
+        root = os.path.join(self.cwd, self.info.get("target", ""))
+        n = 0
+        for d, _, files in os.walk(root):
+            if "DONE" in files and os.path.getmtime(os.path.join(d, "DONE")) >= self.started_at:
+                n += 1
+        return n

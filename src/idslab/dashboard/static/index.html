@@ -5,47 +5,45 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>IDSLab Dashboard</title>
+<title>IDSLab</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
+<a class="skip" href="#view">Skip to the page</a>
 <div class="app" id="app">
   <aside class="sidebar" id="sidebar">
     <div class="brand">
-      <div class="brand-mark">IL</div>
+      <div class="brand-mark" aria-hidden="true">IL</div>
       <div><h1>IDSLab</h1><p>Staged intrusion detection evaluation</p></div>
     </div>
     <nav class="nav" aria-label="Main">
-      <div class="nav-label">Workbench</div>
-      <a href="#/" data-nav="overview"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 7l6-5 6 5v7H2z"/><path d="M6 14v-4h4v4"/></svg><span>Overview</span></a>
-      <a href="#/configs" data-nav="configs"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 2h5l3 3v9H4z"/><path d="M9 2v3h3M6 8h4M6 11h4"/></svg><span>Configs</span></a>
-      <a href="#/builder" data-nav="builder"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="2" width="5" height="4" rx="1"/><rect x="9.5" y="2" width="5" height="4" rx="1"/><rect x="5.5" y="10" width="5" height="4" rx="1"/><path d="M4 6v2h4v2M12 6v2H8"/></svg><span>Builder</span></a>
-      <a href="#/new" data-nav="new"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M8 5v6M5 8h6"/></svg><span>New config</span></a>
-      <a href="#/runs" data-nav="runs"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 14h12M4 11V7M8 11V3M12 11V8"/></svg><span>Runs</span></a>
-      <a href="#/compare" data-nav="compare"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 5h10l-3-3M14 11H4l3 3"/></svg><span>Compare</span></a>
-      <a href="#/sweeps" data-nav="sweeps"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 13h12M4 13V9M7 13V5M10 13V8M13 13V3"/></svg><span>Sweeps</span></a>
-      <a href="#/job" data-nav="job"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 3l9 5-9 5z"/></svg><span>Job</span></a>
-      <div class="nav-label">Tools</div>
-      <a href="#/command/run" data-nav="command-run"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M7 5.5l3 2.5-3 2.5z"/></svg><span>Run a config</span></a>
-      <a href="#/command/report" data-nav="command-report"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2h10v12H3z"/><path d="M5.5 10V8M8 10V5.5M10.5 10V7"/></svg><span>Rebuild report</span></a>
-      <a href="#/command/export-splits" data-nav="command-export-splits"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v8M5 7l3 3 3-3"/><path d="M3 12v2h10v-2"/></svg><span>Export splits</span></a>
-      <a href="#/example" data-nav="example"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4h10M3 8h10M3 12h6"/></svg><span>Example data</span></a>
-      <a href="#/files" data-nav="files"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h4l1.5 1.5H14V13H2z"/></svg><span>Files</span></a>
+      <a href="#/" data-nav="experiments"><svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="2" width="5" height="4" rx="1"/><rect x="9.5" y="2" width="5" height="4" rx="1"/><rect x="5.5" y="10" width="5" height="4" rx="1"/><path d="M4 6v2h4v2M12 6v2H8"/></svg><span>Experiments</span></a>
+      <a href="#/templates" data-nav="templates"><svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 2h5l3 3v9H4z"/><path d="M9 2v3h3M6 8h4M6 11h4"/></svg><span>Templates</span></a>
+      <a href="#/datasets" data-nav="datasets"><svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><ellipse cx="8" cy="4" rx="5" ry="2"/><path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/></svg><span>Datasets</span></a>
+      <a href="#/jobs" data-nav="jobs"><svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 3l9 5-9 5z"/></svg><span>Jobs</span></a>
+      <a href="#/reports" data-nav="reports"><svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 2h10v12H3z"/><path d="M5.5 10V8M8 10V5.5M10.5 10V7"/></svg><span>Reports</span></a>
+      <a href="#/help" data-nav="help"><svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6"/><path d="M6.3 6.2a1.8 1.8 0 1 1 2.4 1.7c-.5.2-.7.6-.7 1.1v.5M8 11.6v.1"/></svg><span>Help</span></a>
+      <div class="nav-label">More</div>
+      <a href="#/compare" data-nav="compare" class="minor"><svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 5h10l-3-3M14 11H4l3 3"/></svg><span>Compare</span></a>
+      <a href="#/sweeps" data-nav="sweeps" class="minor"><svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 13h12M4 13V9M7 13V5M10 13V8M13 13V3"/></svg><span>Sweeps</span></a>
+      <a href="#/files" data-nav="files" class="minor"><svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h4l1.5 1.5H14V13H2z"/></svg><span>Files</span></a>
     </nav>
     <div class="side-foot" id="side-foot"></div>
   </aside>
   <div class="main">
     <header class="topbar">
-      <button class="btn small menu-btn" id="menu-btn" type="button" aria-label="Open menu">Menu</button>
-      <div class="crumbs" id="crumbs">IDSLab</div>
+      <button class="btn small menu-btn" id="menu-btn" type="button" aria-label="Open the menu" aria-controls="sidebar" aria-expanded="false">Menu</button>
+      <nav class="crumbs" id="crumbs" aria-label="Breadcrumb">IDSLab</nav>
       <div class="spacer"></div>
+      <a class="job-pill hidden" id="job-pill" href="#/jobs" aria-label="Running job"></a>
       <button class="btn small" id="refresh-btn" type="button">Refresh</button>
-      <button class="btn small" id="theme-btn" type="button" aria-label="Toggle color theme">Theme</button>
+      <button class="btn small" id="theme-btn" type="button">Theme</button>
     </header>
     <main class="content" id="view" tabindex="-1"></main>
   </div>
 </div>
+<div id="live" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 <script type="module" src="/static/app.js"></script>
 </body>
 </html>

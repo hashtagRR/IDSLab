@@ -484,11 +484,28 @@ server and static files; it adds no dependencies.
 - **Local only.** It binds to 127.0.0.1 by default; the Host header must match, and POST takes
   same-origin JSON only, so another site cannot drive it. Report pages are served under a policy that
   allows no scripts, and the page itself loads nothing from the network.
-- **Visual builder.** Stages on an SVG canvas, routes drawn by dragging output ports onto stages or
-  terminals, score features drawn as dashed edges, and a panel for every stage setting with a model
-  catalog whose parameter forms come from each class's constructor. The builder edits the config as
-  data; the server writes it as YAML and validates it on every change, so the YAML stays the source of
-  truth. Node positions are kept in `<config>.layout.json`, never in the config.
+- **Experiments are views over files.** An experiment is a config and the run outputs written under
+  its name; nothing else is stored. An output belongs to a config when the names match, and when
+  several configs share a name only if the config fingerprints in its `DONE` files match exactly one
+  of them. Anything else is shown on its own, read only, with the reason, so results are never
+  attributed by a guess.
+- **One draft, several editors.** The guided setup steps (Data, Cascade, Evaluation, Review & run),
+  the visual builder and the YAML view edit one draft. Typed YAML is saved as typed. A visual edit
+  changes the config as data and the server writes the YAML with the CLI's writer and validates it, so
+  the YAML stays the source of truth. A visual edit that would drop comments or hand formatting asks
+  first and shows the difference. A run always reads the saved file, so unsaved changes are saved
+  first.
+- **Visual builder.** Stages on an SVG canvas; routes drawn by dragging an output port, by clicking
+  the port and then the destination, from the keyboard, or from lists. Score features are dashed
+  edges. Missing routes, loops and unreached stages are drawn and listed while the draft stays
+  editable. The inspector has a model catalog whose parameter forms come from each class's
+  constructor; unknown classes and parameters are kept as written. Node positions are kept in
+  `<config>.layout.json`, never in the config.
+- **Progress from the job's own words.** Runs log the number of units, each unit's phase, and each
+  unit finished or reused; the Jobs page shows those and nothing estimated. Worker processes of a
+  parallel run do not log, so their count is read from the DONE files written since the job
+  started. Each unit stores the cascade's routes in `summary.json`, so a finished run can be drawn
+  after its config changes.
 - **Dataset inspector.** Reads a sample of a data file (never the whole file) and suggests the label,
   the type column and its normal value, and the categorical columns for `idslab.prep.Encode`.
 

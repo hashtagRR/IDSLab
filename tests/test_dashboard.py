@@ -14,7 +14,7 @@ import pytest
 import yaml
 
 from idslab.config import from_dict, load
-from idslab.dashboard.jobs import JobError, build_command
+from idslab.dashboard.jobs import JobError, build_command, progress
 from idslab.dashboard.server import STATIC, App, make_server
 from idslab.dashboard.workspace import PathError, Workspace
 from idslab.report import write_report
@@ -358,3 +358,143 @@ def test_compare_and_sweep_jobs_and_endpoints(server, ws_dir, r2):
     assert [h["path"] for h in c["experiments"]] == ["runs/r2", "runs/r2-b"]
     [pair] = c["paired"]
     assert pair["per_unit"][0]["diff"] == pytest.approx(0.0)  # the same design on the same flows
+
+
+# ---------- experiments: configs grouped with their outputs ----------
+
+
+def test_runs_log_progress_and_store_the_routes(ws_dir, caplog):
+    summary = json.loads((ws_dir / "runs/r2/standard/seed_0/summary.json").read_text())
+    outline = summary["cascade"]
+    assert outline["entry"] == "screen"
+    assert {s["name"]: s["routes"] for s in outline["stages"]}["screen"]["anomalous"] == "clear"
+    cfg = load(str(ws_dir / "r2.yaml"))
+    with caplog.at_level("INFO", logger="idslab"):
+        run(cfg, out_root=str(ws_dir / "runs"))
+    lines = [r.getMessage() for r in caplog.records]
+    assert "1 unit to run: seed 0" in lines
+    assert "seed 0: already done, reused (fingerprints match)" in lines
+
+
+def test_progress_reads_only_what_the_log_says():
+    log = [
+        "$ idslab run r2.yaml --out runs --jobs 1",
+        "10:00:00 3 units to run: seed 0, seed 1, seed 2",
+        "10:00:01 seed 0: already done, reused (fingerprints match)",
+        "10:00:02 seed 1: started",
+        "10:00:03 seed 1: fitting stage screen (2 candidates)",
+    ]
+    p = progress(log)
+    assert (p["units_total"], p["units_done"], p["units_reused"]) == (3, 1, 1)
+    assert (p["unit"], p["phase"]) == ("seed 1", "fitting stage screen (2 candidates)")
+    p = progress([*log, "10:00:09 seed 1: finished in 7.0s", "10:00:10 seed 2: evaluating on TEST"])
+    assert (p["units_done"], p["phase"]) == (2, "evaluating on TEST")
+    p = progress(["10:00:00 sweep s: variant 2 of 3, lof (x=1)", "10:00:00 1 unit to run: seed 0"])
+    assert (p["variant"], p["variant_index"], p["variants_total"], p["units_total"]) == ("lof", 2, 3, 1)
+    assert progress(["$ idslab report r2.yaml"])["units_total"] is None  # no count is made up
+
+
+def test_experiments_group_outputs_without_guessing(ws_dir, r2):
+    ws = Workspace(str(ws_dir))
+    [e] = ws.experiment_index()
+    assert (e["key"], e["state"]) == ("c:r2.yaml", "completed")
+    assert [o["path"] for o in e["outputs"]] == ["runs/r2"]
+    assert not e["changed_since_run"]
+
+    # an identical copy with the same name: both match the run's fingerprint, so neither owns it
+    (ws_dir / "copy.yaml").write_text(yaml.safe_dump(r2))
+    index = {x["key"]: x for x in ws.experiment_index()}
+    assert index["c:r2.yaml"]["outputs"] == index["c:copy.yaml"]["outputs"] == []
+    alone = index["o:runs/r2"]
+    assert alone["kind"] == "output"
+    assert "share the name r2" in alone["reason"]
+    assert alone["candidates"] == ["copy.yaml", "r2.yaml"]
+
+    # the copy changes: only r2.yaml matches the fingerprint the run recorded
+    changed = copy.deepcopy(r2)
+    changed["stages"]["screen"]["decision"] = {"budget": 0.3, "off": "normal"}
+    (ws_dir / "copy.yaml").write_text(yaml.safe_dump(changed))
+    index = {x["key"]: x for x in ws.experiment_index()}
+    assert [o["path"] for o in index["c:r2.yaml"]["outputs"]] == ["runs/r2"]
+    assert "o:runs/r2" not in index
+    assert index["c:copy.yaml"]["state"] == "draft"
+
+    # no config of that name at all
+    os.remove(ws_dir / "copy.yaml")
+    shutil.copytree(ws_dir / "runs/r2", ws_dir / "runs/old")
+    index = {x["key"]: x for x in ws.experiment_index()}
+    assert index["o:runs/old"]["reason"] == "no config in the workspace is named old"
+
+
+def test_experiment_states(ws_dir, r2):
+    ws = Workspace(str(ws_dir))
+    missing = copy.deepcopy(r2)
+    missing["name"] = "elsewhere"
+    missing["dataset"]["train"] = "nowhere/train.parquet"
+    (ws_dir / "missing.yaml").write_text(yaml.safe_dump(missing))
+    (ws_dir / "broken.yaml").write_text("name: broken\nentry: a\nstages: {a: {kind: nope}}\n")
+    edited = copy.deepcopy(r2)
+    edited["protocol"]["objective"] = "mcc"
+    index = {x["key"]: x for x in ws.experiment_index()}
+    assert index["c:missing.yaml"]["state"] == "needs_data"
+    assert index["c:broken.yaml"]["state"] == "invalid"
+    assert "dataset" in index["c:broken.yaml"]["record"]["error"]
+    (ws_dir / "r2.yaml").write_text(yaml.safe_dump(edited))
+    e = next(x for x in ws.experiment_index() if x["key"] == "c:r2.yaml")
+    assert e["state"] == "completed"  # finished results stay visible
+    assert e["changed_since_run"]
+
+
+def test_report_behind_finished_units(ws_dir):
+    ws = Workspace(str(ws_dir))
+    [o] = ws.experiments()
+    assert not o["report_behind"]
+    assert o["report_files"] == {"md": True, "json": True, "html": True}
+    done = ws_dir / "runs/r2/standard/seed_0/DONE"
+    later = os.path.getmtime(ws_dir / "runs/r2/report.json") + 60
+    os.utime(done, (later, later))
+    [o] = ws.experiments()
+    assert o["report_behind"]
+
+
+def test_experiment_endpoints(server, ws_dir):
+    srv, _ = server
+    status, index, _ = request(srv, "GET", "/api/experiments")
+    assert status == 200
+    assert [e["key"] for e in index] == ["c:r2.yaml"]
+    status, e, _ = request(srv, "GET", "/api/experiment?key=c%3Ar2.yaml")
+    assert status == 200
+    assert e["output"]["path"] == "runs/r2"
+    assert e["output"]["report_full"]["objective"]
+    assert e["validation"]["ok"]
+    status, e, _ = request(srv, "GET", "/api/experiment?output=runs%2Fr2")
+    assert e["key"] == "c:r2.yaml"  # an old link to the run finds its experiment
+    assert request(srv, "GET", "/api/experiment?key=c%3Anope.yaml")[0] == 404
+    status, ds, _ = request(srv, "GET", "/api/datasets")
+    train = next(d for d in ds if d["path"] == "data/train.parquet")
+    assert train["used_by"] == ["r2.yaml"]
+    assert train["size"] > 0
+    status, hist, _ = request(srv, "GET", "/api/history")
+    assert {h["kind"] for h in hist} == {"unit", "report"}
+    unit = next(h for h in hist if h["kind"] == "unit")
+    assert (unit["experiment"], unit["label"]) == ("runs/r2", "seed 0")
+
+
+def test_running_job_marks_its_experiment(server, ws_dir):
+    srv, app = server
+    body = {"command": "run", "config": "r2.yaml", "out": "runs", "force": True}
+    status, snap, _ = request(srv, "POST", "/api/job", body)
+    assert status == 200
+    assert snap["argv"][:2] == ["run", "r2.yaml"]
+    assert "progress" in snap
+    [e] = request(srv, "GET", "/api/experiments")[1]
+    assert e["state"] in ("running", "completed")  # completed if the job already ended
+    for _ in range(600):
+        if app.job.snapshot()["state"] != "running":
+            break
+        time.sleep(0.1)
+    snap = app.job.snapshot()
+    assert snap["state"] == "completed", snap["log"][-5:]
+    assert snap["progress"]["units_total"] == 1
+    assert snap["progress"]["units_done"] == 1
+    assert snap["units_done_on_disk"] == 1

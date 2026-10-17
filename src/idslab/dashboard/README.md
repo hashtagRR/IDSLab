@@ -11,25 +11,48 @@ for anyone reading or extending the implementation.
 idslab dashboard --workspace demo            # http://127.0.0.1:8765/
 ```
 
-![The config editor](../../../docs/img/dashboard-editor.png)
+![The YAML view of an experiment](../../../docs/img/dashboard-editor.png)
 
 ## Layout
 
 | File | What it is |
 |---|---|
-| `server.py` | the HTTP server: `App` (workspace, job, validation), the request handler with its guards, and `make_server` |
-| `workspace.py` | `Workspace`: path checks (relative, inside the root, no hidden parts), config discovery, run discovery by layout (`<name>/<mode>/seed_<s>`), file listing; `describe(cfg)` for the cascade preview |
+| `server.py` | the HTTP server: `App` (workspace, job, validation, the experiment list with the running job marked), the request handler with its guards, and `make_server` |
+| `workspace.py` | `Workspace`: path checks (relative, inside the root, no hidden parts), config and run discovery by layout (`<name>/<mode>/seed_<s>`), `experiment_index` (configs grouped with their outputs, see below), `history` and `datasets` read from files, file listing; `describe(cfg)` for the cascade preview |
 | `catalog.py` | the models and pipeline steps the builder offers, with parameter forms read from each class's constructor, plus plugin entries |
-| `jobs.py` | `build_command` turns a request into the argv of `python -m idslab.cli`, refusing what the CLI parser would; `Job` runs one subprocess at a time in its own process group, keeps the last 5,000 log lines and stops the whole group |
-| `static/index.html` | the page shell: sidebar navigation, top bar, the `<main>` the pages render into |
-| `static/core.js` | helpers: `el()` (DOM from `textContent`, never `innerHTML`), `api()`, formatting, tables, the shared job poller |
-| `static/app.js` | the hash router (`#/`, `#/configs`, `#/config/<path>`, `#/builder/<path>`, `#/new`, `#/runs`, `#/run/<path>/<tab>`, `#/unit/<path>`, `#/job`, `#/command/<cmd>`, `#/example`, `#/files/<path>`), theme and footer |
-| `static/editor.js` | configs list, new config, the YAML editor with validation as you type, and the command forms |
+| `jobs.py` | `build_command` turns a request into the argv of `python -m idslab.cli`, refusing what the CLI parser would; `Job` runs one subprocess at a time in its own process group, keeps the last 5,000 log lines and stops the whole group; `progress` reads phase and finished units from the log |
+| `static/index.html` | the page shell: sidebar navigation, top bar with the running-job indicator, the `<main>` the pages render into, a live region for screen readers |
+| `static/core.js` | helpers: `el()` (DOM from `textContent`, never `innerHTML`), `api()`, formatting, objective-aware numbers, plain-language errors, dialogs, a line diff, the shared job poller |
+| `static/app.js` | the hash router, the redirects from earlier addresses, theme, job indicator |
+| `static/draft.js` | `Draft`: one config being edited, shared by the setup steps, the builder and the YAML view; validation, rewrite consent, save, revert; `bound()` form fields |
+| `static/experiments.js` | the home list with next actions, New experiment, and one experiment's shell (header, save controls, pages, leave guard) |
+| `static/setup.js` | the Data, Cascade, Evaluation and Review & run steps and the YAML view |
+| `static/builder.js` | the visual builder component: canvas, ports, click and keyboard routing, drawing problems, the stage inspector |
+| `static/results.js` | an experiment's Runs, Results, Report and Files pages |
+| `static/library.js` | Templates, Datasets, Reports and Help |
+| `static/jobs.js` | the Jobs page: progress, stop, failures, past activity |
 | `static/compare.js` | the Compare page (pick experiments, paired comparison) and the Sweeps pages (list, new sweep, editor with live check and run panel) |
-| `static/builder.js` | the visual builder: canvas, ports and wires, node moves, the stage, dataset, protocol and controls panels; edits the config as data and lets the server write the YAML |
-| `static/views.js` | overview, runs, one run, one unit, the job log, example data, the file browser |
+| `static/views.js` | one unit in detail, and the file browser |
 | `static/charts.js` | SVG charts: grouped bars with error bars, and the cascade map drawn from parsed routes |
 | `static/styles.css` | all styling; colours are tokens on `:root` with a dark set |
+
+Routes: `#/` experiments, `#/new[/blank|/template/<file>]`, `#/e/<key>/<page>[/<step>]` one experiment
+(`key` is `c:<config path>`, `o:<output folder>` or `n:<unsaved draft>`; pages `setup`, `runs`,
+`results`, `report`, `files`; steps `data`, `cascade`, `evaluation`, `review`, `yaml`), `#/templates`,
+`#/datasets[/<file>]`, `#/jobs`, `#/reports`, `#/help`, `#/compare`, `#/sweeps`, `#/sweep/<file>`,
+`#/unit/<folder>`, `#/files/<folder>`. Earlier addresses (`#/config`, `#/builder`, `#/run`, `#/job`,
+`#/command/...`, `#/example`, `#/configs`, `#/runs`) redirect to their new pages.
+
+## Experiments
+
+An experiment is not stored anywhere: `experiment_index` builds it from the files each time. Each
+config is one experiment. A run output folder belongs to the config whose `name` it carries. When
+several configs share that name, the config fingerprints in the folder's `DONE` files must match
+exactly one of them. Otherwise the folder is listed on its own (`o:` key) with the reason, and the
+page offers no edit, run or rebuild for it.
+
+The state (`draft`, `needs_data`, `invalid`, `running`, `partial`, `completed`) and
+`changed_since_run` come from the config's validation, its data paths, the outputs and the job.
 
 Static files are served as they are, so a change shows up on a browser reload; a change to the Python
 files needs a restart.
@@ -43,8 +66,12 @@ files needs a restart.
 | GET | `/api/configs` | YAML files in the workspace that look like configs: path, name, stage count, mode |
 | GET | `/api/config?path=` | the text of one config |
 | GET | `/api/templates` | the shipped reference configs |
-| GET | `/api/runs` | every experiment found: units done, report headline |
-| GET | `/api/run?path=` | one experiment: units, `report.json`, matching configs |
+| GET | `/api/experiments` | every experiment: key, state, config record, output folders, next-action inputs |
+| GET | `/api/experiment?key=` (or `?output=<folder>`) | one experiment with its chosen output in full (`&out=` picks the folder) and the config's validation |
+| GET | `/api/runs` | every run output found: units done, report headline and report state |
+| GET | `/api/run?path=` | one run output: units, `report.json`, matching configs |
+| GET | `/api/datasets` | data files with size, time and the configs that read them |
+| GET | `/api/history` | finished units, reports and comparisons read from files, newest first |
 | GET | `/api/unit?path=` | one unit's `summary.json` and `DONE` |
 | GET | `/api/files?path=` | a folder listing |
 | GET | `/api/catalog` | models per stage kind and pipeline steps, with parameter forms |
@@ -52,7 +79,7 @@ files needs a restart.
 | GET | `/api/dataset?path=` | columns of a data file from a sample, with suggested label, type, normal value and categorical columns |
 | GET | `/api/sweeps` | sweep files in the workspace |
 | GET | `/api/layout?path=` | saved node positions of a config |
-| GET | `/api/job[?tail=N]` | the job: state, command, target, timings, log |
+| GET | `/api/job[?tail=N]` | the job: state, command and argv, target, timings, log, progress read from the log, units finished on disk |
 | GET | `/files/<path>[?download=1]` | a workspace file: report pages as HTML under a no-script policy, text as plain text, anything else as a download |
 | POST | `/api/validate` | `{yaml, path}`: the CLI's loader; returns the parsed design or the error |
 | POST | `/api/config/save` | `{path, yaml, overwrite}`: writes a `.yaml` or `.yml` file, then validates it |
@@ -79,5 +106,8 @@ The dashboard runs commands and has no login, so it is built for one user on one
   `text/plain`;
 - the browser receives data only; every string from a file reaches the DOM through `textContent`.
 
-`tests/test_dashboard.py` covers the path rules, discovery, command building and these guards
-through a live server.
+`tests/test_dashboard.py` covers the path rules, discovery, experiment grouping, progress, command
+building and these guards through a live server. `tests/test_dashboard_browser.py` drives the pages in
+Chromium (every page and redirect, narrow screens in both themes, the template to report journey, the
+shared YAML and visual draft); it is skipped when Playwright is not installed
+(`pip install -e .[browser-tests]` and `playwright install chromium`).

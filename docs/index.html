@@ -209,7 +209,7 @@ footer a{color:var(--muted)}
   </div>
   <div class="mock" data-reveal aria-label="An IDSLab result, shown as an app panel">
     <div class="mock-top"><b>IDSLab</b><span class="muted" style="font-size:12.5px">r1-router-gate</span>
-      <div class="tabs"><span class="on">Overview</span><span>Report</span><span>Units</span><span>Files</span></div></div>
+      <div class="tabs"><span>Setup</span><span>Runs</span><span class="on">Results</span><span>Report</span><span>Files</span></div></div>
     <div class="mock-body">
       <div class="mbox">
         <h4>Cascade map, frozen on VAL</h4>
@@ -354,12 +354,12 @@ footer a{color:var(--muted)}
 <section class="section" id="dashboard">
   <div class="wrap">
     <div class="shead" data-reveal><div class="num">05 / Local dashboard</div><div>
-      <h2>Every command, in the browser.</h2>
-      <p>Validate, run, rebuild reports, export splits and browse results without leaving the page. Jobs run the real command line in the background, so a run from the browser and one from a shell resume each other.</p></div></div>
-    <div class="shot" data-reveal><img src="img/dashboard-run.png" alt="The dashboard's run page: headline figures, a systems chart, cascade minus each control, stage effects and the frozen cascade of one seed" loading="lazy" /></div>
+      <h2>From a template to a report, in the browser.</h2>
+      <p>Each experiment shows its next step. Setup walks through data, cascade, evaluation and a run; jobs run the real command line, so a run from the browser and one from a shell resume each other.</p></div></div>
+    <div class="shot" data-reveal><img src="img/dashboard-run.png" alt="The dashboard's results page: the cascade against the first stage alone on the TEST objective, the bootstrap reading, stage effects and the comparisons with every control" loading="lazy" /></div>
     <div class="grid g3" style="margin-top:14px">
-      <div class="card" data-reveal><div class="ic"><svg><use href="#i-eye"/></svg></div><h3>Runs and units</h3><p>Headline figures, controls, stage effects, the frozen cascade of any seed and its full selection trace.</p></div>
-      <div class="card" data-reveal><div class="ic"><svg><use href="#i-doc"/></svg></div><h3>Config editor</h3><p>YAML with validation as you type and a live cascade preview, next to the run, report and export panels.</p></div>
+      <div class="card" data-reveal><div class="ic"><svg><use href="#i-eye"/></svg></div><h3>Results read honestly</h3><p>The cascade against the first stage alone, in percentage points, with the per-seed bootstrap read for you and no pooled interval made up.</p></div>
+      <div class="card" data-reveal><div class="ic"><svg><use href="#i-doc"/></svg></div><h3>Guided setup</h3><p>Data, cascade, evaluation, review and run, on one draft shared with the YAML view; comments are never dropped without asking.</p></div>
       <div class="card" data-reveal><div class="ic"><svg><use href="#i-lock"/></svg></div><h3>Local by design</h3><p>Listens on 127.0.0.1, reads and writes only inside the workspace, refuses requests from other sites.</p></div>
     </div>
   </div>

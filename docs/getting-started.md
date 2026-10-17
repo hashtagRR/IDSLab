@@ -86,8 +86,9 @@ number; [Outputs](outputs.md) lists every file.
 idslab dashboard --workspace demo --open
 ```
 
-The [dashboard](dashboard.md) lists the configs and runs in `demo`, edits and validates configs with
-a live cascade preview, starts runs with a live log, and shows results as charts and the full report.
+The [dashboard](dashboard.md) lists the experiments in `demo` with the next step for each. It guides
+a new design through data, cascade, evaluation and a run, follows the job, and shows the results
+next to the full report.
 
 ## Your own data
 

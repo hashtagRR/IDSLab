@@ -145,7 +145,7 @@ The result is `demo/runs/r1-router-gate/report.html`, or the same in the dashboa
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/hashtagRR/IDSLab/main/docs/img/dashboard-run.png" width="90%"
-       alt="The IDSLab dashboard showing one experiment: headline figures, a systems chart, cascade minus each control, stage effects and the frozen cascade of seed 0.">
+       alt="The IDSLab dashboard showing the results of one experiment: the cascade against the first stage alone on the TEST objective, the bootstrap reading, stage effects and the comparisons with every control.">
 </p>
 
 Step-by-step Windows setup, optional model libraries and troubleshooting:

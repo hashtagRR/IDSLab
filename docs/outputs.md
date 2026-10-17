@@ -23,6 +23,7 @@ rewritten after every run (unless `--no-report`) and by `idslab report`.
 | Key                    | Content                                                                 |
 |------------------------|-------------------------------------------------------------------------|
 | `idslab_version`, `config_name`, `config_fingerprint`, `mode`, `seed`, `family` | identity of the unit |
+| `cascade`              | the design the unit ran: entry, selection order, and per stage its kind, routes, decision values and score sources |
 | `split_sizes`          | rows in FIT-base, CAL, VAL and TEST                                     |
 | `split_log`            | merges of rare strata, subsamples, removed families                     |
 | `data_notes`           | label and type disagreements, filled types                              |

@@ -39,6 +39,7 @@ lightgbm = ["lightgbm>=4.0"]
 imbalance = ["imbalanced-learn>=0.12"]
 pyod = ["pyod>=2.0"]
 torch = ["torch>=2.2"]
+browser-tests = ["playwright>=1.44"]
 dev = ["pytest>=8", "pytest-cov>=5", "hypothesis>=6", "ruff>=0.6", "pyright>=1.1.380", "vulture>=2.11", "build>=1.2", "twine>=5"]
 
 [project.urls]

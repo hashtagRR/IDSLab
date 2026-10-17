@@ -41,9 +41,14 @@ STATIC = {
     "core.js",
     "charts.js",
     "views.js",
-    "editor.js",
     "builder.js",
     "compare.js",
+    "draft.js",
+    "setup.js",
+    "experiments.js",
+    "library.js",
+    "jobs.js",
+    "results.js",
 }
 PAGE_CSP = (
     "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
@@ -89,6 +94,35 @@ class App:
             "extras": _extras(),
             "cpu_count": os.cpu_count(),
         }
+
+    def experiments(self) -> list[dict]:
+        """The experiment list, with the running job marked on the experiment it belongs to."""
+        snap = self.job.snapshot(tail=0)
+        index = self.ws.experiment_index()
+        if snap["state"] == "running":
+            for e in index:
+                paths = {o["path"] for o in e["outputs"]}
+                if (e["config"] and snap.get("config") == e["config"]) or snap.get("target") in paths:
+                    e["state"] = "running"
+        return index
+
+    def experiment(self, key: str | None, out: str | None, output: str | None) -> dict:
+        """One experiment: its index entry, the chosen output in full, and the config's validation.
+        ``output`` finds the experiment that owns a run folder (for old links to a run)."""
+        index = self.experiments()
+        if output:
+            e = next((x for x in index if any(o["path"] == output for o in x["outputs"])), None)
+        else:
+            e = next((x for x in index if x["key"] == key), None)
+        if e is None:
+            raise LookupError(key or output)
+        paths = [o["path"] for o in e["outputs"]]
+        chosen = output or (out if out in paths else (paths[0] if paths else None))
+        detail = self.ws.experiment(chosen) if chosen else None
+        validation = None
+        if e["config"]:
+            validation = self.validate(self.ws.config_text(e["config"]), e["config"])
+        return {**e, "output": detail, "validation": validation}
 
     def validate(self, text: str, rel: str | None) -> dict:
         """The loader ``idslab validate`` uses; relative data paths resolve against the config's folder."""
@@ -192,6 +226,14 @@ class Handler(BaseHTTPRequestHandler):
             return app.ws.layout(q.get("path", ""))
         if path == "/api/sweeps":
             return app.ws.sweeps()
+        if path == "/api/experiments":
+            return app.experiments()
+        if path == "/api/experiment":
+            return app.experiment(q.get("key"), q.get("out"), q.get("output"))
+        if path == "/api/datasets":
+            return app.ws.datasets()
+        if path == "/api/history":
+            return app.ws.history()
         raise LookupError(path)
 
     def _static(self, name: str) -> None:

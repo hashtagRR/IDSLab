@@ -3,6 +3,38 @@
 Every version that can change results gets a new number: finished run units are reused only while
 the config, data and IDSLab version fingerprints match.
 
+## Unreleased
+
+Results do not change: finished units from 0.2.0 are reused.
+
+Added:
+
+- Dashboard redesign around experiments. The home page lists each config with the results written
+  under its name, its state and the next step. Outputs are matched to configs by name, and by the
+  stored config fingerprints when names collide; outputs that match no config, or several, stay
+  readable on their own.
+- New experiment from a template (a copy with its own name), from YAML, or from a blank design.
+  Templates, Datasets, Jobs, Reports and Help pages.
+- Guided setup in four steps (Data, Cascade, Evaluation, Review & run), sharing one draft with the
+  YAML view. Typed YAML keeps its comments; a visual edit that would drop them asks first and shows
+  the difference.
+- Builder: click-to-route and keyboard routing, focusable ports and stages, missing routes, loops
+  and unreached stages drawn and listed, and an inspector in sections. Parameters the forms do not
+  cover are kept as written.
+- Results page: the TEST objective against the first stage alone, read with the per-unit bootstrap,
+  in percentage points or as a cost; stage effects, unseen attacks and types, comparisons with every
+  control, reproducibility. The frozen cascade of a unit is drawn from the routes it stored.
+- Jobs page with progress from the job's log (units to run, finished, reused, the current phase),
+  a running-job indicator on every page, and past activity read from the workspace files.
+- Runs log the unit count and each unit finished or reused; sweeps log the variant number.
+  `summary.json` stores the cascade's routes (`cascade`), and `Config.outline()` returns them.
+- Optional browser tests (`pip install -e .[browser-tests]`).
+
+Changed:
+
+- Earlier dashboard addresses (`#/config`, `#/builder`, `#/run`, `#/job`, `#/command/...`,
+  `#/example`) redirect to the pages that now hold the same thing.
+
 ## 0.2.0 (2026-10-17)
 
 Finished run units from 0.1.0 are not reused: the version is part of every unit's fingerprint, and the

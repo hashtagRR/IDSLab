@@ -242,9 +242,10 @@ def run_sweep(
     sweep = load_sweep(path)
     paths = write_configs(sweep, out_root)
     exp_dirs, names = [], {}
-    for v, p in zip(sweep.variants, paths, strict=True):
+    total = len(sweep.variants)
+    for i, (v, p) in enumerate(zip(sweep.variants, paths, strict=True), start=1):
         cfg = load(p)
-        log.info("sweep %s: variant %s (%s)", sweep.name, v.name, v.label)
+        log.info("sweep %s: variant %d of %d, %s (%s)", sweep.name, i, total, v.name, v.label)
         fps = data_fingerprints(cfg)
         run(cfg, out_root=out_root, seeds=seeds, jobs=jobs, force=force, data_fps=fps)
         write_report(out_root, cfg, seeds or (), fps)

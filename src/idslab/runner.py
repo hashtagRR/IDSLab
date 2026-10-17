@@ -89,6 +89,11 @@ def data_fingerprints(cfg: Config) -> dict[str, str]:
     return {role: file_fingerprint(cfg.path(p)) for role, p in files.items() if p is not None}
 
 
+def unit_label(seed: int, family: str | None = None) -> str:
+    """How progress lines name a run unit."""
+    return f"seed {seed}" + (f" family {family}" if family else "")
+
+
 def unit_dir(out_root: str, cfg: Config, seed: int, family: str | None = None) -> str:
     d = os.path.join(out_root, cfg.name, cfg.protocol.mode, f"seed_{seed}")
     return d if family is None else os.path.join(d, "fam_" + re.sub(r"[^A-Za-z0-9._-]", "_", family))
@@ -145,7 +150,7 @@ class Provider:
         self.choice: dict[str, int] = {}
         self.test_filled: set[str] = set()
         self.family = family
-        self.unit = f"seed {seed}" + (f" family {family}" if family else "")
+        self.unit = unit_label(seed, family)
         self.split_fp = split.fingerprint(table.row_id)
 
     def _fit(self, s: str) -> list[Fitted]:
@@ -330,9 +335,12 @@ def run_seed(
         if same:
             try:
                 with open(os.path.join(d, "summary.json"), encoding="utf-8") as g:
-                    return {"seed": seed, "family": family, "skipped": True, "summary": json.load(g)}
+                    summary = json.load(g)
             except (OSError, ValueError):
                 pass  # summary missing or unreadable: run the seed again
+            else:
+                log.info("%s: already done, reused (fingerprints match)", unit_label(seed, family))
+                return {"seed": seed, "family": family, "skipped": True, "summary": summary}
     os.makedirs(d, exist_ok=True)
     if os.path.exists(done):
         os.remove(done)
@@ -441,6 +449,7 @@ def run_seed(
         "idslab_version": __version__,
         "config_name": cfg.name,
         "config_fingerprint": fps["config"],
+        "cascade": cfg.outline(),
         "mode": cfg.protocol.mode,
         "seed": seed,
         "family": family,
@@ -465,6 +474,7 @@ def run_seed(
         done,
         {"fingerprints": fps, "finished": datetime.datetime.now(datetime.timezone.utc).isoformat()},
     )
+    log.info("%s: finished in %.1fs", unit, summary["runtime_seconds"])
     return {"seed": seed, "family": family, "skipped": False, "summary": summary}
 
 
@@ -489,6 +499,12 @@ def run(
     use = list(dict.fromkeys(seeds if seeds is not None else cfg.protocol.seeds))  # each seed once
     fams: list[str | None] = list(families(cfg, table)) if cfg.protocol.mode == "heldout_family" else [None]
     units = [(s, f) for s in use for f in fams]
+    log.info(
+        "%d unit%s to run: %s",
+        len(units),
+        "" if len(units) == 1 else "s",
+        ", ".join(unit_label(s, f) for s, f in units),
+    )
     if jobs == 1 or len(units) == 1:
         return [
             run_seed(
