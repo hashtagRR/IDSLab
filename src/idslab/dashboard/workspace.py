@@ -9,9 +9,11 @@ path parts are refused, so ``.git``, ``.venv`` and dot files are never read or w
 from __future__ import annotations
 
 import datetime
+import errno
 import json
 import os
 import re
+import stat
 from typing import Any
 
 from idslab.config import MODES, Config, ConfigError, from_dict, parse_yaml
@@ -27,6 +29,10 @@ class PathError(ValueError):
     """A path outside the workspace, hidden, or of the wrong kind."""
 
 
+class WorkspaceMissingError(PathError):
+    """The workspace folder does not exist."""
+
+
 def _read_json(path: str) -> Any:
     try:
         with open(path, encoding="utf-8") as f:
@@ -37,9 +43,7 @@ def _read_json(path: str) -> Any:
 
 class Workspace:
     def __init__(self, root: str):
-        self.root = os.path.realpath(root)
-        if not os.path.isdir(self.root):
-            raise PathError(f"workspace {root} is not a folder")
+        self.root = _checked_root(root)
         self._loaded: dict[str, tuple[tuple[float, int], dict]] = {}  # config path: (stamp, record)
 
     # ---------- paths ----------
@@ -469,6 +473,54 @@ class Workspace:
         return {"path": self.rel(d), "entries": entries}
 
 
+def _checked_root(root: str) -> str:
+    """The real path of a workspace folder, resolved as before (links followed, then ``..``), or a
+    PathError that says what is wrong. WorkspaceMissingError means only the folder itself is
+    missing and its parent folder can be written to, so creating it would work."""
+    if not os.path.isabs(root):
+        try:
+            os.getcwd()
+        except FileNotFoundError:  # the terminal's own folder was deleted
+            msg = "the current folder no longer exists; open the terminal in another folder"
+            raise PathError(msg) from None
+    real = os.path.realpath(root)
+    try:
+        st = os.stat(real)
+    except OSError as e:
+        if e.errno == errno.ELOOP:
+            raise PathError(f"workspace {root}: a link on the way points back to itself") from None
+        if not isinstance(e, (FileNotFoundError, NotADirectoryError)):  # permissions, a lost share
+            raise PathError(f"workspace folder {root} cannot be read: {e.strerror or e}") from None
+        raise _why_missing(root, real) from None
+    if not stat.S_ISDIR(st.st_mode):
+        raise PathError(f"workspace {root} is a file, not a folder")
+    return real
+
+
+def _why_missing(root: str, real: str) -> PathError:
+    """Why the resolved path of a workspace is not a folder, in the words the user needs."""
+    drive = os.path.splitdrive(real)[0]
+    if drive and not os.path.exists(drive + os.sep):
+        return PathError(f"workspace folder {root}: drive {drive} is not available")
+    named = root.rstrip("/" + os.sep) or root  # with a trailing slash, lstat would follow the link
+    if os.path.islink(named):  # the folder named is a link whose target is gone
+        return PathError(f"workspace {root} is a link to {real}, which does not exist")
+    # mention where the path leads only when a link changed its name (not for /tmp -> /private/tmp)
+    leads = os.path.basename(real) != os.path.basename(os.path.abspath(named))
+    shown = f" (it leads to {real})" if leads else ""
+    parent = os.path.dirname(real)
+    if os.path.isdir(parent):
+        if os.access(parent, os.W_OK):
+            return WorkspaceMissingError(f"workspace folder {root} does not exist{shown}")
+        return PathError(f"workspace folder {root} does not exist{shown}, and {parent} cannot be written to")
+    cur = parent
+    while not os.path.lexists(cur) and os.path.dirname(cur) != cur:
+        cur = os.path.dirname(cur)
+    if os.path.lexists(cur) and not os.path.isdir(cur):
+        return PathError(f"workspace folder {root}: {cur} is a file, not a folder")
+    return PathError(f"workspace folder {root} does not exist{shown}, and neither does the folder above it")
+
+
 def _epoch(stamp: Any) -> float | None:
     try:
         return datetime.datetime.fromisoformat(str(stamp)).timestamp()
@@ -668,4 +720,12 @@ def describe(cfg: Config) -> dict:
     }
 
 
-__all__ = ["ConfigError", "PathError", "Workspace", "config_info", "describe", "inspect_data"]
+__all__ = [
+    "ConfigError",
+    "PathError",
+    "Workspace",
+    "WorkspaceMissingError",
+    "config_info",
+    "describe",
+    "inspect_data",
+]

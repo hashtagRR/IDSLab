@@ -16,7 +16,7 @@ import yaml
 from idslab.config import from_dict, load
 from idslab.dashboard.jobs import JobError, build_command, progress
 from idslab.dashboard.server import STATIC, App, make_server
-from idslab.dashboard.workspace import PathError, Workspace
+from idslab.dashboard.workspace import PathError, Workspace, WorkspaceMissingError
 from idslab.report import write_report
 from idslab.runner import run
 
@@ -498,3 +498,93 @@ def test_running_job_marks_its_experiment(server, ws_dir):
     assert snap["progress"]["units_total"] == 1
     assert snap["progress"]["units_done"] == 1
     assert snap["units_done_on_disk"] == 1
+
+
+def test_workspace_folder_problems_are_told_apart(tmp_path):
+    with pytest.raises(WorkspaceMissingError, match="does not exist") as e:
+        Workspace(str(tmp_path / "demo"))
+    assert "--workspace" not in str(e.value)  # command-line advice belongs to the CLI
+    (tmp_path / "file").write_text("x")
+    with pytest.raises(PathError, match="is a file, not a folder"):
+        Workspace(str(tmp_path / "file"))
+    if os.name == "posix" and os.geteuid() != 0:
+        locked = tmp_path / "locked"
+        (locked / "ws").mkdir(parents=True)
+        locked.chmod(0)
+        try:
+            with pytest.raises(PathError, match="cannot be read") as e:
+                Workspace(str(locked / "ws"))
+            assert not isinstance(e.value, WorkspaceMissingError)
+        finally:
+            locked.chmod(0o700)
+
+
+def test_cli_dashboard_explains_a_bad_workspace(tmp_path, capsys, monkeypatch):
+    from idslab.cli import main  # noqa: PLC0415
+
+    monkeypatch.chdir(tmp_path)
+    assert main(["dashboard", "--workspace", "demo"]) == 2
+    err = capsys.readouterr().err
+    assert "workspace folder demo does not exist" in err
+    assert "check the path for a typo" in err
+    assert "idslab example demo" in err
+    assert "--debug" not in err
+    assert main(["dashboard", "--workspace", "my data"]) == 2
+    err = capsys.readouterr().err
+    assert "check the path for a typo" in err
+    assert "idslab example <this folder>" in err  # not pasted unquoted
+    with pytest.raises(WorkspaceMissingError):
+        main(["--debug", "dashboard", "--workspace", "demo"])  # --debug keeps the traceback
+
+    (tmp_path / "file").write_text("x")
+    assert main(["dashboard", "--workspace", "file"]) == 2
+    err = capsys.readouterr().err
+    assert "is a file, not a folder" in err
+    assert "--debug" not in err
+    assert main(["dashboard", "--workspace", "a/b/c"]) == 2  # missing more than one level up
+    err = capsys.readouterr().err
+    assert "neither does the folder above it" in err
+    assert "idslab example" not in err
+    if os.name == "posix":
+        os.symlink(tmp_path / "gone", tmp_path / "link")
+        assert main(["dashboard", "--workspace", "link"]) == 2
+        err = capsys.readouterr().err
+        assert "is a link to" in err
+        assert "idslab example" not in err  # the example cannot be written through a broken link
+        assert main(["dashboard", "--workspace", "link/"]) == 2  # a trailing slash too
+        assert "idslab example" not in capsys.readouterr().err
+        assert main(["dashboard", "--workspace", "link/demo"]) == 2
+        assert "idslab example" not in capsys.readouterr().err
+        os.symlink(tmp_path / "loop", tmp_path / "loop")
+        assert main(["dashboard", "--workspace", "loop/demo"]) == 2
+        assert "points back to itself" in capsys.readouterr().err
+        if os.geteuid() != 0:
+            ro = tmp_path / "ro"
+            ro.mkdir()
+            ro.chmod(0o500)
+            try:
+                assert main(["dashboard", "--workspace", "ro/demo"]) == 2
+                err = capsys.readouterr().err
+                assert "cannot be written to" in err
+                assert "idslab example" not in err
+            finally:
+                ro.chmod(0o700)
+        gone = tmp_path / "gone-cwd"
+        gone.mkdir()
+        monkeypatch.chdir(gone)
+        gone.rmdir()
+        assert main(["dashboard", "--workspace", "."]) == 2
+        assert "the current folder no longer exists" in capsys.readouterr().err
+        monkeypatch.chdir(tmp_path)
+        # a link followed by .. resolves as the system resolves it (link first)
+        (tmp_path / "x" / "y").mkdir(parents=True)
+        (tmp_path / "x" / "ws").mkdir()
+        os.symlink(tmp_path / "x" / "y", tmp_path / "toy")
+        assert Workspace("toy/../ws").root == os.path.realpath(tmp_path / "x" / "ws")
+    assert main(["dashboard", "--workspace", "file/demo"]) == 2
+    err = capsys.readouterr().err
+    assert "is a file, not a folder" in err
+    assert "idslab example" not in err  # creating it there cannot work
+
+    assert main(["example", "demo"]) == 0
+    Workspace(str(tmp_path / "demo"))  # once the example has run, the folder is accepted

@@ -34,6 +34,9 @@ Changed:
 
 - Earlier dashboard addresses (`#/config`, `#/builder`, `#/run`, `#/job`, `#/command/...`,
   `#/example`) redirect to the pages that now hold the same thing.
+- `idslab dashboard` on a folder that does not exist says how to create it (`idslab example demo`)
+  instead of an unexpected-error line. The install guides make creating the demo folder its own
+  step before the dashboard, and the command-line run an optional step after it.
 
 ## 0.2.0 (2026-10-17)
 

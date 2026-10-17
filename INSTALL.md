@@ -101,19 +101,33 @@ check:
 
 It prints `idslab 0.2.0` (or a newer number).
 
-### 6. A first run
+### 6. Create the demo folder (do not skip)
+
+The dashboard always works inside one folder, its **workspace**: it lists the configs, data and
+results found there and saves new files there. That folder must exist before the dashboard starts.
+For a first try, let IDSLab create one called `demo`, with example data and three ready designs:
 
 ```powershell
 .\.venv\Scripts\idslab example demo
-.\.venv\Scripts\idslab run demo\r1_router_gate.yaml --out demo\runs
 ```
 
-The first line writes a small synthetic dataset and three reference designs to the `demo` folder. The
-second fits, selects and evaluates one design; each of its three seeds takes about a minute, and
-progress lines show what it is doing. When it finishes, open
-`demo\runs\r1-router-gate\report.html` (double-click it in File Explorer).
+It prints `wrote demo\data\train.parquet, demo\data\test.parquet and r1_router_gate.yaml, ...` and
+creates this inside the project folder:
+
+```text
+demo\
+  data\train.parquet, data\test.parquet    synthetic network flows
+  r1_router_gate.yaml                      three reference designs
+  r1_four_layer.yaml
+  r2_anomaly_first.yaml
+```
+
+You only do this once. If you skip it, the next step stops with
+`workspace folder demo does not exist`.
 
 ### 7. Open the dashboard
+
+Still in the project folder (the one that now contains `demo`):
 
 ```powershell
 .\.venv\Scripts\idslab dashboard --workspace demo --open
@@ -123,13 +137,30 @@ progress lines show what it is doing. When it finishes, open
   address in your browser. If no browser opens, open one and go to **http://127.0.0.1:8765/**.
 - **Keep the PowerShell window open** while you use the dashboard. Pressing **Ctrl+C** in it, or
   closing it, stops the dashboard and any run it started.
-- `--workspace` is the folder the dashboard works in: it lists the configs, data and results inside
-  it and saves new configs there. Use any folder, for example `--workspace C:\data\my-ids`.
+- The page lists the three designs. For a first run, click **Continue setup** on `r1-router-gate`,
+  then **Run** on the Review & run step. Each of its three seeds takes about a minute; the Jobs page
+  shows the progress, and **View results** opens the result when it ends.
+- `demo` is a path relative to the folder PowerShell is in. For your own data, make a folder, copy
+  your Parquet or CSV files into it, and start the dashboard with that folder, for example
+  `--workspace C:\data\my-ids`. The [getting started guide](docs/getting-started.md#your-own-data)
+  explains the rest.
 - It only listens on this computer, so Windows does not ask for firewall access.
 
-### 8. Next time
+### 8. A run from the command line (optional)
 
-Open PowerShell in the project folder (step 3) and run:
+The same run without the dashboard, as it would go in a script:
+
+```powershell
+.\.venv\Scripts\idslab run demo\r1_router_gate.yaml --out demo\runs
+```
+
+Progress lines show what it is doing. When it finishes, open `demo\runs\r1-router-gate\report.html`
+(double-click it in File Explorer). The dashboard shows runs from the command line too, and the two
+reuse each other's finished seeds.
+
+### 9. Next time
+
+Open PowerShell in the project folder (step 3); `demo` from step 6 is still there. Run:
 
 ```powershell
 .\.venv\Scripts\idslab dashboard --workspace demo --open
@@ -141,7 +172,7 @@ system", allow local scripts for your user once with
 `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, then activate again. In Command Prompt
 (`cmd.exe`) use `.venv\Scripts\activate.bat` instead.
 
-### 9. Update or remove
+### 10. Update or remove
 
 - **Update, ZIP install:** download and extract the new ZIP, then repeat steps 3 to 5 in the new
   folder. Copy your own configs, data and `runs` folders across.
@@ -153,12 +184,13 @@ system", allow local scripts for your user once with
 
 | What you see | Cause and fix |
 |---|---|
+| `workspace folder demo does not exist` (older versions: `workspace demo is not a folder`) | Step 6 has not run in this folder, or PowerShell is in another folder. Run `.\.venv\Scripts\idslab example demo` in the project folder, then start the dashboard again. |
 | `The module '.venv' could not be loaded` | The command is missing the leading `.\`, or uses `bin` instead of `Scripts`: type `.\.venv\Scripts\idslab ...` |
 | `py : The term 'py' is not recognized` | The py launcher is missing: rerun the python.org installer, **Modify**, tick **py launcher**. |
 | `python` opens the Microsoft Store | Windows' store placeholder; use `py -3.12`, or turn the placeholder off in Settings, Apps, Advanced app settings, App execution aliases. |
 | `.venv\Scripts` does not exist | Step 4 has not run, or a non-Windows Python made a `.venv\bin`: delete `.venv` and run `py -3.12 -m venv .venv`. |
 | `ERROR: file:///... does not appear to be a Python project` | PowerShell is not in the folder with `pyproject.toml` (step 3); with the ZIP, use the inner `IDSLab-main`. |
-| `running scripts is disabled on this system` | Only `Activate.ps1` needs scripts; use the full `.\.venv\Scripts\...` commands, or see step 8. |
+| `running scripts is disabled on this system` | Only `Activate.ps1` needs scripts; use the full `.\.venv\Scripts\...` commands, or see step 9. |
 | The browser does not open | Go to http://127.0.0.1:8765/ yourself while the PowerShell window still runs the dashboard. |
 | The page cannot be reached | The dashboard is not running (window closed or Ctrl+C), or it uses another port: read the address it printed. |
 | `[WinError 10048] Only one usage of each socket address` | Port 8765 is taken, often by a dashboard in another window. Close it, or start with `--port 8766` (or `--port 0` for any free port). |
@@ -241,16 +273,18 @@ python3.12 -m venv .venv
 
 The last line prints `idslab 0.2.0` (or a newer number).
 
-### 6. A first run
+### 6. Create the demo folder (do not skip)
+
+The dashboard always works inside one folder, its **workspace**, which must exist before it starts.
+For a first try, let IDSLab create `demo` with example data and three ready designs:
 
 ```bash
 .venv/bin/idslab example demo
-.venv/bin/idslab run demo/r1_router_gate.yaml --out demo/runs
-open demo/runs/r1-router-gate/report.html
 ```
 
-The first line writes a synthetic dataset and three reference designs to `demo`; the second fits,
-selects and evaluates one design (about a minute per seed); `open` shows the report in your browser.
+It writes `demo/data/train.parquet`, `demo/data/test.parquet` and three designs
+(`r1_router_gate.yaml`, `r1_four_layer.yaml`, `r2_anomaly_first.yaml`) inside the project folder. You
+only do this once; without it the next step stops with `workspace folder demo does not exist`.
 
 ### 7. Open the dashboard
 
@@ -259,9 +293,20 @@ selects and evaluates one design (about a minute per seed); `open` shows the rep
 ```
 
 It opens **http://127.0.0.1:8765/** in your default browser. Keep the Terminal window open while you
-use it; **Ctrl+C** in Terminal stops it. `--workspace` can be any folder with your configs and data.
+use it; **Ctrl+C** in Terminal stops it. For a first run, click **Continue setup** on
+`r1-router-gate`, then **Run** on the Review & run step (about a minute per seed). For your own data,
+make a folder with your Parquet or CSV files and pass it as `--workspace`.
 
-### 8. Next time
+### 8. A run from the command line (optional)
+
+```bash
+.venv/bin/idslab run demo/r1_router_gate.yaml --out demo/runs
+open demo/runs/r1-router-gate/report.html
+```
+
+The same run without the dashboard; `open` shows the report in your browser.
+
+### 9. Next time
 
 ```bash
 cd ~/Downloads/IDSLab-main
@@ -271,7 +316,7 @@ cd ~/Downloads/IDSLab-main
 Or activate the environment once per Terminal window with `source .venv/bin/activate` and type plain
 `idslab`.
 
-### 9. Update or remove
+### 10. Update or remove
 
 - **Update, ZIP install:** download and extract the new ZIP, repeat steps 3 to 5, and copy your
   configs, data and `runs` across.
@@ -357,13 +402,18 @@ python3 -m venv .venv
 .venv/bin/idslab --version
 ```
 
-### 6. A first run
+### 6. Create the demo folder (do not skip)
+
+The dashboard always works inside one folder, its **workspace**, which must exist before it starts.
+For a first try, let IDSLab create `demo` with example data and three ready designs:
 
 ```bash
 .venv/bin/idslab example demo
-.venv/bin/idslab run demo/r1_router_gate.yaml --out demo/runs
-xdg-open demo/runs/r1-router-gate/report.html
 ```
+
+It writes `demo/data/train.parquet`, `demo/data/test.parquet` and three designs
+(`r1_router_gate.yaml`, `r1_four_layer.yaml`, `r2_anomaly_first.yaml`) inside the project folder. You
+only do this once; without it the next step stops with `workspace folder demo does not exist`.
 
 ### 7. Open the dashboard
 
@@ -371,7 +421,10 @@ xdg-open demo/runs/r1-router-gate/report.html
 .venv/bin/idslab dashboard --workspace demo --open
 ```
 
-It opens **http://127.0.0.1:8765/** in your browser. Keep the terminal open; **Ctrl+C** stops it.
+It opens **http://127.0.0.1:8765/** in your browser. Keep the terminal open; **Ctrl+C** stops it. For
+a first run, click **Continue setup** on `r1-router-gate`, then **Run** on the Review & run step
+(about a minute per seed). For your own data, make a folder with your Parquet or CSV files and pass it
+as `--workspace`.
 
 **On a server without a desktop:** leave out `--open`, and from your own computer forward the port over
 SSH, then open http://127.0.0.1:8765/ in your local browser:
@@ -383,7 +436,16 @@ ssh -L 8765:127.0.0.1:8765 you@server
 Do not start the dashboard with `--host 0.0.0.0` on a shared network: it runs commands and has no
 login.
 
-### 8. Next time
+### 8. A run from the command line (optional)
+
+```bash
+.venv/bin/idslab run demo/r1_router_gate.yaml --out demo/runs
+xdg-open demo/runs/r1-router-gate/report.html
+```
+
+The same run without the dashboard; `xdg-open` shows the report in your browser.
+
+### 9. Next time
 
 ```bash
 cd ~/IDSLab-main
@@ -392,7 +454,7 @@ cd ~/IDSLab-main
 
 Or `source .venv/bin/activate` once per terminal and type plain `idslab`.
 
-### 9. Update or remove
+### 10. Update or remove
 
 - **Update, ZIP install:** download and extract the new ZIP, repeat steps 3 to 5, copy your files
   across.
@@ -474,6 +536,7 @@ On Windows replace `.venv/bin/` with `.\.venv\Scripts\`.
 
 | Message | Fix |
 |---|---|
+| `workspace folder demo does not exist` | the dashboard's `--workspace` folder must exist: run `idslab example demo` first (step 6), or name a folder that holds your data; the path is relative to the folder the terminal is in |
 | `cannot import module 'xgboost' (install it with: pip install idslab[xgboost])` | install the named extra |
 | `Encode: non-numeric columns not listed in 'categorical'` | add the text columns to the `categorical` list of `idslab.prep.Encode` in that stage's pipeline (the dashboard's Data step does this from your data) |
 | `train and test columns differ` | the two files need the same columns; drop extras with `dataset.drop` |

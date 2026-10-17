@@ -150,10 +150,31 @@ def _sweep(args: argparse.Namespace) -> int:
     return 0
 
 
+def _name(folder: str) -> str:
+    """A folder as typed, when it is a plain name every shell passes unchanged; otherwise a
+    placeholder rather than a command that would paste wrongly."""
+    plain = folder and folder[0] != "-" and all(c.isalnum() or c in "_.-" for c in folder)
+    return folder if plain else "<this folder>"
+
+
 def _dashboard(args: argparse.Namespace) -> int:
     from idslab.dashboard.server import App, make_server  # noqa: PLC0415  (only this command needs it)
+    from idslab.dashboard.workspace import PathError, WorkspaceMissingError  # noqa: PLC0415
 
-    app = App(args.workspace)
+    try:
+        app = App(args.workspace)
+    except PathError as e:  # the workspace folder: told plainly, it is not an unexpected error
+        if args.debug:
+            raise
+        print(f"idslab: {e}", file=sys.stderr)
+        if isinstance(e, WorkspaceMissingError):
+            print(
+                "If it should hold your own data, check the path for a typo. To try the example data, "
+                "create the folder first with the example command, started the same way as this one: "
+                f"idslab example {_name(args.workspace)}",
+                file=sys.stderr,
+            )
+        return 2
     server = make_server(args.host, args.port, app)
     host, port = server.server_address[:2]
     url = f"http://{'127.0.0.1' if host in ('0.0.0.0', '::') else host}:{port}/"  # noqa: S104

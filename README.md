@@ -127,7 +127,7 @@ step-by-step guides for Windows, macOS and GNU/Linux.
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -e .
-.venv/bin/idslab example demo                                  # synthetic data, three reference designs
+.venv/bin/idslab example demo                                  # creates demo/: data and three designs
 .venv/bin/idslab run demo/r1_router_gate.yaml --out demo/runs  # fit, choose on VAL, report on TEST
 .venv/bin/idslab dashboard --workspace demo --open             # optional web UI
 ```
@@ -136,7 +136,7 @@ python3 -m venv .venv && .venv/bin/pip install -e .
 
 ```powershell
 py -3.12 -m venv .venv; .\.venv\Scripts\pip install -e .
-.\.venv\Scripts\idslab example demo
+.\.venv\Scripts\idslab example demo                      # creates the demo folder the dashboard opens
 .\.venv\Scripts\idslab run demo\r1_router_gate.yaml --out demo\runs
 .\.venv\Scripts\idslab dashboard --workspace demo --open   # keep the window open; Ctrl+C stops it
 ```
