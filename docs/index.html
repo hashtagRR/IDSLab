@@ -318,7 +318,7 @@ footer a{color:var(--muted)}
     </div>
     <div class="qa">
       <div data-reveal><span class="k">QUESTION 2</span><h3>Could a threshold do the same?</h3>
-        <p>The frontier gap compares the cascade's detection rate with the best the first stage reaches at the same false alarm rate by moving its threshold. A positive gap means the stages reach a point no threshold can.</p>
+        <p>The frontier gap compares the cascade's detection rate with the best the first stage reaches at the same false alarm rate by changing its threshold, or by mixing two thresholds. A positive gap (the report's interpolated value) means the stages reach a point that neither a threshold nor a mix of two can.</p>
         <div class="facts"><span class="fact">gap <b>-0.010</b>, just below the curve</span></div></div>
       <div class="plate" data-reveal><img src="img/frontier-gap.svg" alt="The first stage's ROC curve with its upper hull; the cascade's point lies 0.010 below the hull" loading="lazy" /></div>
     </div>
@@ -335,11 +335,11 @@ footer a{color:var(--muted)}
   <div class="wrap">
     <div class="shead" data-reveal><div class="num">04 / Visual builder</div><div>
       <h2>Draw the design. Get the config.</h2>
-      <p>Drag stages onto a canvas, wire each output to a stage or a terminal, and set models, decisions and pipelines in a side panel. The server writes the YAML and validates it on every change.</p></div></div>
+      <p>Add stages to a canvas, connect each output to a stage or a terminal, and set models, decisions and pipelines in a side panel. The server writes the YAML and validates it on every change, and the design stays editable while it has problems.</p></div></div>
     <div class="split2">
       <div data-reveal>
         <ul class="ticks">
-          <li><svg class="i"><use href="#i-check"/></svg><span><b>Ports and wires.</b> Drag an output port onto a stage or onto ATTACK or BENIGN; an unrouted port shows in red.</span></li>
+          <li><svg class="i"><use href="#i-check"/></svg><span><b>Routes three ways.</b> Drag an output port, click it and then the destination, or use the keyboard. Missing routes, loops and stages nothing reaches are drawn and listed.</span></li>
           <li><svg class="i"><use href="#i-check"/></svg><span><b>Score features.</b> Drag a stage's score onto a later stage to use it as an input, out-of-fold on training rows.</span></li>
           <li><svg class="i"><use href="#i-check"/></svg><span><b>A model catalog.</b> scikit-learn, XGBoost, LightGBM, PyOD and PyTorch, with parameter forms read from each class.</span></li>
           <li><svg class="i"><use href="#i-check"/></svg><span><b>Reads your data.</b> Suggests the label, type and text columns from a sample of the file.</span></li>
@@ -358,7 +358,7 @@ footer a{color:var(--muted)}
       <p>Each experiment shows its next step. Setup walks through data, cascade, evaluation and a run; jobs run the real command line, so a run from the browser and one from a shell resume each other.</p></div></div>
     <div class="shot" data-reveal><img src="img/dashboard-run.png" alt="The dashboard's results page: the cascade against the first stage alone on the TEST objective, the bootstrap reading, stage effects and the comparisons with every control" loading="lazy" /></div>
     <div class="grid g3" style="margin-top:14px">
-      <div class="card" data-reveal><div class="ic"><svg><use href="#i-eye"/></svg></div><h3>Results read honestly</h3><p>The cascade against the first stage alone, in percentage points, with the per-seed bootstrap read for you and no pooled interval made up.</p></div>
+      <div class="card" data-reveal><div class="ic"><svg><use href="#i-eye"/></svg></div><h3>Results read honestly</h3><p>The cascade against the first stage alone, in percentage points, with the paired bootstrap of every run unit read for you and no pooled interval made up.</p></div>
       <div class="card" data-reveal><div class="ic"><svg><use href="#i-doc"/></svg></div><h3>Guided setup</h3><p>Data, cascade, evaluation, review and run, on one draft shared with the YAML view; comments are never dropped without asking.</p></div>
       <div class="card" data-reveal><div class="ic"><svg><use href="#i-lock"/></svg></div><h3>Local by design</h3><p>Listens on 127.0.0.1, reads and writes only inside the workspace, refuses requests from other sites.</p></div>
     </div>
@@ -378,7 +378,7 @@ footer a{color:var(--muted)}
       <div class="card" data-reveal><span class="tag">COST</span><div class="ic"><svg><use href="#i-coin"/></svg></div><h3>Cost and latency</h3><p>Choose by the cost of missed attacks and false alarms. See how many flows reach each stage and what the cascade costs per flow.</p></div>
       <div class="card" data-reveal><span class="tag">SELECTION</span><div class="ic"><svg><use href="#i-layers"/></svg></div><h3>Honest selection</h3><p>Greedy selection with an off option, a variant that keeps fixed stages on, and a joint check that measures what greedy missed.</p></div>
       <div class="card" data-reveal><span class="tag">REPORTS</span><div class="ic"><svg><use href="#i-doc"/></svg></div><h3>Reports you can read</h3><p>Markdown, JSON and a self-contained HTML page with the cascade map, controls, unseen-attack grid and per-seed configuration.</p></div>
-      <div class="card" data-reveal><span class="tag">RESUME</span><div class="ic"><svg><use href="#i-lock"/></svg></div><h3>Reproducible runs</h3><p>Every unit is fingerprinted by config, data, split, score files and version; finished seeds are reused only when all match.</p></div>
+      <div class="card" data-reveal><span class="tag">RESUME</span><div class="ic"><svg><use href="#i-lock"/></svg></div><h3>Reproducible runs</h3><p>Every unit is fingerprinted by config, data, split, score files and results version; finished seeds are reused while all match, across releases that leave the evaluation unchanged.</p></div>
       <div class="card" data-reveal><span class="tag">PLUGINS</span><div class="ic"><svg><use href="#i-plug"/></svg></div><h3>Plugins</h3><p>Packages add models, pipeline steps and objectives through an entry point; they appear in the builder and in configs.</p></div>
     </div>
   </div>
@@ -409,7 +409,7 @@ footer a{color:var(--muted)}
       <p class="muted" style="font-size:17px;max-width:780px">IDSLab is released under the GNU Affero General Public License, version 3 or later. Use it for research and teaching, read every rule it applies, and publish your changes under the same terms.</p>
       <div class="ctas" style="margin-top:22px">
         <a class="btn" href="https://github.com/hashtagRR/IDSLab/blob/main/LICENSE">License <svg class="i"><use href="#i-out"/></svg></a>
-        <a class="btn" href="https://github.com/hashtagRR/IDSLab/blob/main/CITATION.cff">How to cite <svg class="i"><use href="#i-out"/></svg></a>
+        <a class="btn" href="https://doi.org/10.5281/zenodo.23435536">How to cite <svg class="i"><use href="#i-out"/></svg></a>
         <a class="btn" href="https://github.com/hashtagRR/IDSLab/blob/main/docs/limitations.md">Known limitations <svg class="i"><use href="#i-out"/></svg></a>
       </div>
     </div>
@@ -433,6 +433,7 @@ footer a{color:var(--muted)}
 <span class="k3">&gt;</span> .\.venv\Scripts\idslab dashboard --workspace demo --open</pre>
     <div class="ctas" style="justify-content:center">
       <a class="btn primary" href="https://github.com/hashtagRR/IDSLab/blob/main/docs/getting-started.md">Getting started guide <svg class="i"><use href="#i-arrow"/></svg></a>
+      <a class="btn" href="https://github.com/hashtagRR/IDSLab/blob/main/docs/how-it-works.md">How it works, in figures</a>
       <a class="btn" href="https://github.com/hashtagRR/IDSLab/blob/main/INSTALL.md">Install guide</a>
       <a class="btn" href="https://github.com/hashtagRR/IDSLab/blob/main/docs/config-reference.md">Config reference</a>
       <a class="btn" href="https://github.com/hashtagRR/IDSLab"><svg class="i"><use href="#i-gh"/></svg>Source on GitHub</a>

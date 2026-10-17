@@ -6,6 +6,13 @@ releases keep finished runs.
 
 ## Unreleased
 
+Documentation only; the code and the evaluation are unchanged, and finished runs are reused.
+
+- A shorter README: overview, quickstart for every system, guides, versions and citation.
+- `docs/how-it-works.md` explains a run with its figures: the design, the splits, the accuracy after
+  each stage, the frontier gap and the flow map.
+- The project site describes the current builder, results page and fingerprints, and links the DOI.
+
 ## 0.3.1 (2026-10-17)
 
 - Finished run units survive releases that do not change the evaluation. Fingerprints carry a results

@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2026 hashtagRR
-"""Generate the README and guide figures (SVG) for IDSLab.
+"""Generate the figures (SVG) of docs/how-it-works.md, the README overview and the project site.
+
+The numbers in the prose of docs/how-it-works.md and docs/index.html come from the same run; update
+both when the figures change.
 
 Usage:
 

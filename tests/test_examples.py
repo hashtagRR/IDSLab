@@ -52,8 +52,8 @@ def test_external_score_job_round_trip(data_dir, r4, tmp_path):
     assert info["external_producer"]["code_version"] == "mlp-1"
 
 
-def test_readme_config_is_valid():
-    text = (EXAMPLES.parent / "README.md").read_text(encoding="utf-8")
+def test_how_it_works_config_is_valid():
+    text = (EXAMPLES.parent / "docs" / "how-it-works.md").read_text(encoding="utf-8")
     block = text.split("```yaml\n", 1)[1].split("```", 1)[0]
     cfg = from_dict(parse_yaml(block))
     assert cfg.order() == ["binary", "router", "gate"]
