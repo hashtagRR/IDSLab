@@ -6,6 +6,8 @@ releases keep finished runs.
 
 ## Unreleased
 
+## 0.3.2 (2026-10-17)
+
 Documentation only; the code and the evaluation are unchanged, and finished runs are reused.
 
 - A shorter README: overview, quickstart for every system, guides, versions and citation.
