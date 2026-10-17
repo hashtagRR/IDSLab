@@ -34,7 +34,7 @@ function blocked(ctx, what, report) {
   if (info.kind === "output") return `${what} needs a config: ${info.reason}.`;
   if (info.validation && !info.validation.ok) return `${what} needs a config that loads; ${info.config} has problems (see Setup).`;
   if (report && info.output?.reportable_units === 0) {
-    return `${what} needs finished units of this config and this IDSLab version, and there are none yet. Run the experiment first.`;
+    return `${what} needs finished units of this config and the current evaluation, and there are none yet. Run the experiment first.`;
   }
   if (job.snapshot?.state === "running") return "Another job is running; one job runs at a time.";
   return null;

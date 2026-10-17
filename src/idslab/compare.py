@@ -20,6 +20,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from idslab.results_version import normalized
 from idslab.metrics import paired_bootstrap
 from idslab.report import unit
 
@@ -53,7 +54,9 @@ def load_experiment(path: str) -> dict:
         s = _read(summary_path)
         label = unit(s)
         if label in wanted:
-            units[label] = {"dir": d, "fingerprints": _read(done).get("fingerprints", {})}
+            stored = _read(done)
+            fps = normalized(stored.get("fingerprints") if isinstance(stored, dict) else None)
+            units[label] = {"dir": d, "fingerprints": fps}
     if not units:
         raise CompareError(f"{path}: the report lists no units that are still on disk")
     return {"path": path, "report": rep, "units": units}

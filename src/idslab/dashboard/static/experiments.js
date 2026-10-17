@@ -112,7 +112,7 @@ function expRow(e) {
     el("div", {class: "exp-main"},
       el("div", {class: "row"}, el("a", {class: "exp-name", href: expHref(e.key), text: e.name || "(no name)"}),
         expBadge(e.state), e.kind === "output" ? badge("No config", "amber") : null, e.changed_since_run ? badge("Config changed since the run", "amber") : null,
-        e.outputs.some((x) => x.other_version?.length) ? badge("Results from another IDSLab version", "amber") : null),
+        e.outputs.some((x) => x.other_version?.length) ? badge("Results from another evaluation version", "amber") : null),
       el("div", {class: "muted small mono wrap", text: where}),
       el("div", {class: "small", text: [units, o?.has_report ? `report ${ago(o.report_mtime)}` : null, e.outputs.length > 1 ? `${e.outputs.length} output folders` : null]
         .filter(Boolean).join("; ")}),
@@ -314,14 +314,15 @@ export async function experimentView(view, meta, key, tab, sub, setCrumbs) {
   }
   const o = info?.output;
   if (o?.other_version?.length) {
-    const vers = o.other_version.map((v) => (v === "unknown" ? "a version that did not record itself" : v)).join(", ");
-    let text = `Some or all of these results were written by IDSLab ${vers}; this is ${meta.version}. They stay readable.`;
+    const vers = o.other_version.map((v) => (v === "unknown" ? "an unrecorded version (or with a damaged DONE file)" : v)).join(", ");
+    let text = `Some or all of these results were written by IDSLab ${vers}, whose evaluation differs from the one in ${meta.version} (older or newer). ` +
+      "They stay readable.";
     if (info.kind === "config" && info.state === "invalid") {
-      text += " Fix the config in Setup first; a run then computes them again with this version.";
+      text += " Fix the config in Setup first; a run then computes them again.";
     } else if (info.kind === "config") {
       text += o.reportable_units
-        ? ` A report built now counts only the ${o.reportable_units} unit${o.reportable_units === 1 ? "" : "s"} of this version; a run computes the others again.`
-        : " A run computes them again (the version is part of every unit's fingerprint), and the report can be rebuilt after that run.";
+        ? ` A report built now counts only the ${o.reportable_units} unit${o.reportable_units === 1 ? "" : "s"} of the current evaluation; a run computes the others again.`
+        : " A run computes them again, and the report can be rebuilt after that run.";
     }
     view.append(note(text, "warn"));
   }

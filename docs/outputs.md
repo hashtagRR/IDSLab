@@ -57,11 +57,13 @@ stage, so any selection choice can be recomputed.
 
 ```json
 {"fingerprints": {"config": "...", "data": {"train": "...", "test": "..."}, "split": "...",
-                  "package_version": "0.3.0", "family": null, "external": {}},
- "finished": "2026-10-16T09:37:40+00:00"}
+                  "results_version": "1", "family": null, "external": {}},
+ "idslab_version": "0.3.1", "finished": "2026-10-16T09:37:40+00:00"}
 ```
 
-Written last, so a unit without `DONE` did not finish. `external` maps every external score file and
+Written last, so a unit without `DONE` did not finish. `results_version` is what reuse and reports
+compare; `idslab_version` only records which release wrote the unit (units from 0.2.0 and 0.3.0
+have `package_version` in the fingerprints instead). `external` maps every external score file and
 its `.json` sidecar to its hash. See [Resume](protocol.md#resume).
 
 ## Splits export

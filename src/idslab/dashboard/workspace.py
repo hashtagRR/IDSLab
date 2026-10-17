@@ -17,6 +17,7 @@ import stat
 from typing import Any
 
 from idslab import __version__
+from idslab.results_version import RESULTS_VERSION, results_version
 from idslab.config import MODES, Config, ConfigError, from_dict, parse_yaml
 
 SKIP_DIRS = {"__pycache__", "node_modules", "venv", "site-packages"}
@@ -212,7 +213,10 @@ class Workspace:
         done_mtimes = [u["done_mtime"] for u in units if u["done_mtime"] is not None]
         in_report = len(report.get("units") or []) if isinstance(report, dict) else 0
         n_done = sum(u["done"] for u in units)
-        versions = {u["version"] or "unknown" for u in units if u["done"]}
+        done_units = [u for u in units if u["done"]]
+        # finished units of another results version are not reused and a report never counts them;
+        # people are shown the IDSLab release that wrote them
+        stale = [u for u in done_units if u["results_version"] != RESULTS_VERSION]
         return {
             "path": self.rel(exp),
             "name": os.path.basename(exp),
@@ -232,17 +236,16 @@ class Workspace:
                 and (in_report < n_done or any(t > report_mtime + 1 for t in done_mtimes))
             ),
             "config_fingerprints": sorted({u["config_fp"] for u in units if u["config_fp"]}),
-            # IDSLab versions that wrote the finished units; units of another version are not reused,
-            # and a report counts only units of the running version
-            "versions": sorted(versions),
-            # finished units an earlier IDSLab wrote ("unknown" when DONE does not say): not reused,
-            # and never counted by a report built with this version
-            "other_version": sorted(versions - {__version__}),
+            # releases that wrote those units, for people; "unknown" when the unit does not say,
+            # or when it says the running release but its fingerprints are damaged
+            "other_version": sorted(
+                {u["written_by"] if u["written_by"] != __version__ else "unknown" for u in stale}
+            ),
             "reportable_units": None,  # set per config by experiment_index (needs the config)
-            # every finished unit's other versions: the experiment needs a new run before any report
-            "only_other_version": bool(versions) and __version__ not in versions,
+            # every finished unit is of another results version: a run is needed before any report
+            "only_other_version": bool(done_units) and len(stale) == len(done_units),
             "_done_keys": [
-                (u["mode"], u["version"], u["config_fp"], u["seed"], u["has_summary"])
+                (u["mode"], u["results_version"], u["config_fp"], u["seed"], u["has_summary"])
                 for u in units
                 if u["done"]
             ],
@@ -383,14 +386,15 @@ class Workspace:
             rec = e["record"]
             for o in e["outputs"]:
                 # the units a report built now would count: a summary, this config and its mode and
-                # seeds, this version (the data fingerprint is left to the report: hashing is too slow)
+                # seeds, the current results version (the data fingerprint is left to the report:
+                # hashing it here is too slow)
                 o["reportable_units"] = (
                     sum(
                         1
                         for mode, version, cfp, seed, has_summary in o["_done_keys"]
                         if has_summary
                         and mode == rec.get("mode")
-                        and version == __version__
+                        and version == RESULTS_VERSION
                         and cfp == rec["fingerprint"]
                         and seed in rec.get("seeds", ())
                     )
@@ -579,7 +583,7 @@ def _state(e: dict) -> str:
     if outs:
         o = outs[0]
         if o["units_done"] and o["only_other_version"]:
-            return "outdated"  # every finished unit is from another IDSLab version: a run redoes them
+            return "outdated"  # every finished unit has another results version: a run redoes them
         return "completed" if o["has_report"] and o["units_done"] == o["units_total"] else "partial"
     if rec is not None and any(not d["exists"] for d in rec["data"]):
         return "needs_data"
@@ -606,7 +610,9 @@ def _units(exp: str):
 
 def _unit_row(d: str, mode: str, seed: int, family: str | None) -> dict:
     done = _read_json(os.path.join(d, "DONE"))
-    fps = (done.get("fingerprints") or {}) if isinstance(done, dict) else {}
+    fps = done.get("fingerprints") if isinstance(done, dict) else None
+    if not isinstance(fps, dict):  # missing or damaged: matches nothing, shown as unknown
+        fps = {}
     summary_path = os.path.join(d, "summary.json")
     row = {
         "dir": d,
@@ -617,7 +623,11 @@ def _unit_row(d: str, mode: str, seed: int, family: str | None) -> dict:
         "finished": done.get("finished") if isinstance(done, dict) else None,
         "done_mtime": os.path.getmtime(os.path.join(d, "DONE")) if isinstance(done, dict) else None,
         "config_fp": fps.get("config"),
-        "version": fps.get("package_version"),
+        "results_version": results_version(fps),
+        # the IDSLab release that wrote the unit, for people
+        "written_by": (done.get("idslab_version") if isinstance(done, dict) else None)
+        or fps.get("package_version")
+        or "unknown",
         "mtime": os.path.getmtime(d),
         "has_summary": False,
         "runtime_seconds": None,

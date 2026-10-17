@@ -132,7 +132,12 @@ three non-type labels count as wrong.
 ## Resume
 
 A finished run unit writes `DONE` with fingerprints of the config, the data files, the split, every
-external score file and its JSON sidecar, and the IDSLab version. `idslab run` skips a unit whose
+external score file and its JSON sidecar, and the results version. `idslab run` skips a unit whose
 fingerprints all match and reruns it otherwise (`--force` reruns regardless). Reports include only
-units whose fingerprints match the current config, data, external score files and version, and list
-any unit they leave out with the reason.
+units whose fingerprints match the current config, data, external score files and results version,
+and list any unit they leave out with the reason.
+
+The results version (`idslab.results_version.RESULTS_VERSION`) changes only with a release that
+changes what a run computes; the changelog says when. Other releases keep finished units valid.
+Units written by IDSLab 0.2.0 and 0.3.0 carry the package version instead and count as results
+version 1, which is what those releases compute.

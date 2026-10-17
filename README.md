@@ -3,6 +3,7 @@
 **[hashtagRR.github.io/IDSLab](https://hashtagRR.github.io/IDSLab)**
 
 [![tests](https://github.com/hashtagRR/IDSLab/actions/workflows/tests.yml/badge.svg)](https://github.com/hashtagRR/IDSLab/actions/workflows/tests.yml)
+[![PyPI](https://img.shields.io/pypi/v/idslab)](https://pypi.org/project/idslab/)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23435536.svg)](https://doi.org/10.5281/zenodo.23435536)
 
 <p align="center">
@@ -119,15 +120,15 @@ attack families held out of training, and per-type results when the design names
 
 ## Quickstart
 
-Download the code (green **Code** button, **Download ZIP**, then extract; or `git clone
-https://github.com/hashtagRR/IDSLab.git`) and open a terminal in the folder that holds
-`pyproject.toml`. [INSTALL.md](https://github.com/hashtagRR/IDSLab/blob/main/INSTALL.md) has
-step-by-step guides for Windows, macOS and GNU/Linux.
+IDSLab is on [PyPI](https://pypi.org/project/idslab/) and needs Python 3.10 or newer. Make a folder
+for it, open a terminal there, and run the lines below.
+[INSTALL.md](https://github.com/hashtagRR/IDSLab/blob/main/INSTALL.md) has step-by-step guides for
+Windows, macOS and GNU/Linux.
 
 **GNU/Linux and macOS**
 
 ```bash
-python3 -m venv .venv && .venv/bin/pip install -e .
+python3 -m venv .venv && .venv/bin/pip install idslab
 .venv/bin/idslab example demo                                  # creates demo/: data and three designs
 .venv/bin/idslab run demo/r1_router_gate.yaml --out demo/runs  # fit, choose on VAL, report on TEST
 .venv/bin/idslab dashboard --workspace demo --open             # optional web UI
@@ -136,7 +137,7 @@ python3 -m venv .venv && .venv/bin/pip install -e .
 **Windows (PowerShell)**: the programs are in `.venv\Scripts`, and PowerShell needs the leading `.\`
 
 ```powershell
-py -3.12 -m venv .venv; .\.venv\Scripts\pip install -e .
+py -3.12 -m venv .venv; .\.venv\Scripts\pip install idslab
 .\.venv\Scripts\idslab example demo                      # creates the demo folder the dashboard opens
 .\.venv\Scripts\idslab run demo\r1_router_gate.yaml --out demo\runs
 .\.venv\Scripts\idslab dashboard --workspace demo --open   # keep the window open; Ctrl+C stops it
@@ -174,7 +175,11 @@ Step-by-step Windows setup, optional model libraries and troubleshooting:
 
 ## Versions
 
-- **`v0.3.0`** (latest): the dashboard redesigned around experiments: a guided setup (data, cascade,
+Every release, with its notes, is on the [Releases page](https://github.com/hashtagRR/IDSLab/releases)
+and in the [changelog](https://github.com/hashtagRR/IDSLab/blob/main/CHANGELOG.md); the PyPI badge
+above shows the newest. The main steps so far:
+
+- **`v0.3.0`**: the dashboard redesigned around experiments: a guided setup (data, cascade,
   evaluation, review and run) sharing one draft with the YAML view, templates, datasets, jobs with
   real progress, a results page that reads the cascade against the first stage with the per-unit
   bootstrap, and reports. Clear messages for a missing workspace folder. Results are unchanged;

@@ -6,7 +6,7 @@ most of it spent downloading libraries (a few hundred MB).
 - [Windows](#windows)
 - [macOS](#macos)
 - [GNU/Linux](#gnulinux)
-- [One-line install from GitHub](#one-line-install-from-github)
+- [From the source code](#from-the-source-code)
 - [Optional extras](#optional-extras)
 - [Tests and checks](#tests-and-checks)
 - [Troubleshooting on every system](#troubleshooting-on-every-system)
@@ -15,7 +15,8 @@ What you need: Python 3.10 or newer (3.12 is the safest choice: every optional l
 packages for it), about 1 GB of free disk space, and an internet connection for the install. No
 compiler, no administrator rights after Python is installed.
 
-IDSLab is not on PyPI yet; the guides install it from the source code on GitHub.
+The guides install IDSLab from [PyPI](https://pypi.org/project/idslab/) into a folder of its own;
+the source code is only needed to change IDSLab itself ([from the source code](#from-the-source-code)).
 
 ---
 
@@ -40,60 +41,38 @@ so every command starts with `.\.venv\Scripts\`.
    You should see a line with `3.12`. If PowerShell says `py` is not recognized, run the installer
    again, choose **Modify**, and tick **py launcher**.
 
-### 2. Download IDSLab
+### 2. Make a folder for IDSLab
 
-**Option A, ZIP file (no other tools needed):**
-
-1. Open [github.com/hashtagRR/IDSLab](https://github.com/hashtagRR/IDSLab), click the green **Code**
-   button, then **Download ZIP**.
-2. In File Explorer, right-click `IDSLab-main.zip` in Downloads, choose **Extract All...**, then
-   **Extract**.
-3. Windows puts the files in a folder inside a folder of the same name:
-   `Downloads\IDSLab-main\IDSLab-main`. The inner one is the project folder: it contains
-   `pyproject.toml`, `README.md` and the `src` folder. Use that one below.
-
-**Option B, Git** (if [Git for Windows](https://git-scm.com/download/win) is installed):
+In the same PowerShell window:
 
 ```powershell
-cd $HOME
-git clone https://github.com/hashtagRR/IDSLab.git
-cd IDSLab
+mkdir $HOME\idslab
+cd $HOME\idslab
 ```
 
-### 3. Open PowerShell in the project folder
+This is the **IDSLab folder**: the program, the example and your results live here. Every command
+below runs in it. (Any other plain local folder works too; avoid OneDrive and network folders.)
 
-In File Explorer, open the project folder (the one with `pyproject.toml`), click the address bar,
-type `powershell` and press Enter. A PowerShell window opens in that folder. (On Windows 11 you can
-also right-click inside the folder and choose **Open in Terminal**.)
-
-Check you are in the right place:
-
-```powershell
-dir pyproject.toml
-```
-
-This must list the file. If it says it cannot find it, you are one folder too high: `cd IDSLab-main`.
-
-### 4. Create the virtual environment
+### 3. Create the virtual environment
 
 ```powershell
 py -3.12 -m venv .venv
 dir .venv\Scripts\python.exe
 ```
 
-The second command must list `python.exe`. If
-`.venv` was created but has a `bin` folder instead of `Scripts`, a non-Windows Python (MSYS2, Git
-Bash, Cygwin) made it: delete the `.venv` folder and run the `py -3.12` line again.
+The second command must list `python.exe`. If `.venv` was created but has a `bin` folder instead of
+`Scripts`, a non-Windows Python (MSYS2, Git Bash, Cygwin) made it: delete the `.venv` folder and run
+the `py -3.12` line again.
 
-### 5. Install IDSLab
+### 4. Install IDSLab
 
 ```powershell
 .\.venv\Scripts\python -m pip install --upgrade pip
-.\.venv\Scripts\pip install -e .
+.\.venv\Scripts\pip install idslab
 ```
 
-The second line downloads scikit-learn, pandas and the other libraries; it takes a few minutes. Then
-check:
+The second line downloads IDSLab with scikit-learn, pandas and the other libraries; it takes a few
+minutes. Then check:
 
 ```powershell
 .\.venv\Scripts\idslab --version
@@ -101,7 +80,7 @@ check:
 
 It prints `idslab 0.3.0` (or a newer number).
 
-### 6. Create the demo folder (do not skip)
+### 5. Create the demo folder (do not skip)
 
 The dashboard always works inside one folder, its **workspace**: it lists the configs, data and
 results found there and saves new files there. That folder must exist before the dashboard starts.
@@ -112,7 +91,7 @@ For a first try, let IDSLab create one called `demo`, with example data and thre
 ```
 
 It prints `wrote demo\data\train.parquet, demo\data\test.parquet and r1_router_gate.yaml, ...` and
-creates this inside the project folder:
+creates this inside the IDSLab folder:
 
 ```text
 demo\
@@ -125,9 +104,9 @@ demo\
 You only do this once. If you skip it, the next step stops with
 `workspace folder demo does not exist`.
 
-### 7. Open the dashboard
+### 6. Open the dashboard
 
-Still in the project folder (the one that now contains `demo`):
+Still in the IDSLab folder (the one that now contains `demo`):
 
 ```powershell
 .\.venv\Scripts\idslab dashboard --workspace demo --open
@@ -146,7 +125,7 @@ Still in the project folder (the one that now contains `demo`):
   explains the rest.
 - It only listens on this computer, so Windows does not ask for firewall access.
 
-### 8. A run from the command line (optional)
+### 7. A run from the command line (optional)
 
 The same run without the dashboard, as it would go in a script:
 
@@ -158,11 +137,12 @@ Progress lines show what it is doing. When it finishes, open `demo\runs\r1-route
 (double-click it in File Explorer). The dashboard shows runs from the command line too, and the two
 reuse each other's finished seeds.
 
-### 9. Next time
+### 8. Next time
 
-Open PowerShell in the project folder (step 3); `demo` from step 6 is still there. Run:
+Open PowerShell and go to the IDSLab folder; `demo` from step 5 is still there:
 
 ```powershell
+cd $HOME\idslab
 .\.venv\Scripts\idslab dashboard --workspace demo --open
 ```
 
@@ -172,32 +152,32 @@ system", allow local scripts for your user once with
 `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, then activate again. In Command Prompt
 (`cmd.exe`) use `.venv\Scripts\activate.bat` instead.
 
-### 10. Update or remove
+### 9. Update or remove
 
-- **Update, ZIP install:** download and extract the new ZIP, then repeat steps 3 to 5 in the new
-  folder. Copy your own configs, data and `runs` folders across.
-- **Update, Git install:** `git pull`, then `.\.venv\Scripts\pip install -e .`
-- **Remove:** delete the project folder. Nothing was installed anywhere else (Python itself stays;
+- **Update:** `.\.venv\Scripts\pip install --upgrade idslab` in the IDSLab folder. Your configs,
+  data and results stay where they are. A new version runs finished experiments once more before
+  their reports can be rebuilt (the [changelog](CHANGELOG.md) says when).
+- **Remove:** delete the IDSLab folder. Nothing was installed anywhere else (Python itself stays;
   remove it in Settings, Apps if you want).
 
 ### Windows troubleshooting
 
 | What you see | Cause and fix |
 |---|---|
-| `workspace folder demo does not exist` (older versions: `workspace demo is not a folder`) | Step 6 has not run in this folder, or PowerShell is in another folder. Run `.\.venv\Scripts\idslab example demo` in the project folder, then start the dashboard again. |
+| `workspace folder demo does not exist` (older versions: `workspace demo is not a folder`) | Step 5 has not run in this folder, or PowerShell is in another folder. Go to the IDSLab folder (`cd $HOME\idslab`), run `.\.venv\Scripts\idslab example demo`, then start the dashboard again. |
 | `The module '.venv' could not be loaded` | The command is missing the leading `.\`, or uses `bin` instead of `Scripts`: type `.\.venv\Scripts\idslab ...` |
 | `py : The term 'py' is not recognized` | The py launcher is missing: rerun the python.org installer, **Modify**, tick **py launcher**. |
 | `python` opens the Microsoft Store | Windows' store placeholder; use `py -3.12`, or turn the placeholder off in Settings, Apps, Advanced app settings, App execution aliases. |
-| `.venv\Scripts` does not exist | Step 4 has not run, or a non-Windows Python made a `.venv\bin`: delete `.venv` and run `py -3.12 -m venv .venv`. |
-| `ERROR: file:///... does not appear to be a Python project` | PowerShell is not in the folder with `pyproject.toml` (step 3); with the ZIP, use the inner `IDSLab-main`. |
-| `running scripts is disabled on this system` | Only `Activate.ps1` needs scripts; use the full `.\.venv\Scripts\...` commands, or see step 9. |
+| `.venv\Scripts` does not exist | Step 3 has not run in this folder, or a non-Windows Python made a `.venv\bin`: delete `.venv` and run `py -3.12 -m venv .venv`. |
+| `No matching distribution found for idslab` | The environment's Python is older than 3.10: delete `.venv` and create it again with `py -3.12`. |
+| `running scripts is disabled on this system` | Only `Activate.ps1` needs scripts; use the full `.\.venv\Scripts\...` commands, or see step 8. |
 | The browser does not open | Go to http://127.0.0.1:8765/ yourself while the PowerShell window still runs the dashboard. |
 | The page cannot be reached | The dashboard is not running (window closed or Ctrl+C), or it uses another port: read the address it printed. |
 | `[WinError 10048] Only one usage of each socket address` | Port 8765 is taken, often by a dashboard in another window. Close it, or start with `--port 8766` (or `--port 0` for any free port). |
 | Windows asks for firewall access | The dashboard was started with `--host 0.0.0.0` or another address. With the default 127.0.0.1 no prompt appears. |
-| Everything is slow | Antivirus scanning, or the project inside OneDrive or a network folder. Use a plain local folder such as `C:\idslab`. |
+| Everything is slow | Antivirus scanning, or the IDSLab folder inside OneDrive or a network folder. Use a plain local folder such as `C:\idslab`. |
 | `pip` tries to build a package from source and fails | Your Python is newer than that library's packages; use Python 3.12. |
-| Errors about paths longer than 260 characters | Move the project to a shorter path such as `C:\idslab`, or enable long paths in Windows. |
+| Errors about paths longer than 260 characters | Use a shorter IDSLab folder such as `C:\idslab`, or enable long paths in Windows. |
 
 ---
 
@@ -228,34 +208,17 @@ Check again; the python.org and Homebrew installs both provide `python3.12`:
 python3.12 --version
 ```
 
-### 2. Download IDSLab
-
-**Option A, ZIP file:**
-
-1. Open [github.com/hashtagRR/IDSLab](https://github.com/hashtagRR/IDSLab), click the green **Code**
-   button, then **Download ZIP**.
-2. Safari extracts it automatically into `Downloads/IDSLab-main`; with another browser, double-click
-   `IDSLab-main.zip` in Downloads. The `IDSLab-main` folder is the project folder: it contains
-   `pyproject.toml`.
-
-**Option B, Git** (installed with the command line developer tools, `xcode-select --install`):
+### 2. Make a folder for IDSLab
 
 ```bash
-cd ~
-git clone https://github.com/hashtagRR/IDSLab.git
+mkdir ~/idslab
+cd ~/idslab
 ```
 
-### 3. Open Terminal in the project folder
+This is the **IDSLab folder**: the program, the example and your results live here, and every command
+below runs in it.
 
-```bash
-cd ~/Downloads/IDSLab-main      # or: cd ~/IDSLab for a Git install
-ls pyproject.toml
-```
-
-`ls` must print `pyproject.toml`. (Tip: type `cd ` with a space, drag the folder from Finder onto the
-Terminal window, and press Enter.)
-
-### 4. Create the virtual environment
+### 3. Create the virtual environment
 
 ```bash
 python3.12 -m venv .venv
@@ -263,17 +226,17 @@ python3.12 -m venv .venv
 
 (Use `python3` instead of `python3.12` if your system Python is already 3.10 or newer.)
 
-### 5. Install IDSLab
+### 4. Install IDSLab
 
 ```bash
 .venv/bin/python -m pip install --upgrade pip
-.venv/bin/pip install -e .
+.venv/bin/pip install idslab
 .venv/bin/idslab --version
 ```
 
 The last line prints `idslab 0.3.0` (or a newer number).
 
-### 6. Create the demo folder (do not skip)
+### 5. Create the demo folder (do not skip)
 
 The dashboard always works inside one folder, its **workspace**, which must exist before it starts.
 For a first try, let IDSLab create `demo` with example data and three ready designs:
@@ -283,10 +246,10 @@ For a first try, let IDSLab create `demo` with example data and three ready desi
 ```
 
 It writes `demo/data/train.parquet`, `demo/data/test.parquet` and three designs
-(`r1_router_gate.yaml`, `r1_four_layer.yaml`, `r2_anomaly_first.yaml`) inside the project folder. You
+(`r1_router_gate.yaml`, `r1_four_layer.yaml`, `r2_anomaly_first.yaml`) inside the IDSLab folder. You
 only do this once; without it the next step stops with `workspace folder demo does not exist`.
 
-### 7. Open the dashboard
+### 6. Open the dashboard
 
 ```bash
 .venv/bin/idslab dashboard --workspace demo --open
@@ -297,7 +260,7 @@ use it; **Ctrl+C** in Terminal stops it. For a first run, click **Continue setup
 `r1-router-gate`, then **Run** on the Review & run step (about a minute per seed). For your own data,
 make a folder with your Parquet or CSV files and pass it as `--workspace`.
 
-### 8. A run from the command line (optional)
+### 7. A run from the command line (optional)
 
 ```bash
 .venv/bin/idslab run demo/r1_router_gate.yaml --out demo/runs
@@ -306,22 +269,20 @@ open demo/runs/r1-router-gate/report.html
 
 The same run without the dashboard; `open` shows the report in your browser.
 
-### 9. Next time
+### 8. Next time
 
 ```bash
-cd ~/Downloads/IDSLab-main
+cd ~/idslab
 .venv/bin/idslab dashboard --workspace demo --open
 ```
 
 Or activate the environment once per Terminal window with `source .venv/bin/activate` and type plain
 `idslab`.
 
-### 10. Update or remove
+### 9. Update or remove
 
-- **Update, ZIP install:** download and extract the new ZIP, repeat steps 3 to 5, and copy your
-  configs, data and `runs` across.
-- **Update, Git install:** `git pull && .venv/bin/pip install -e .`
-- **Remove:** delete the project folder.
+- **Update:** `.venv/bin/pip install --upgrade idslab` in the IDSLab folder; your files stay.
+- **Remove:** delete the IDSLab folder.
 
 ### macOS troubleshooting
 
@@ -332,7 +293,7 @@ Or activate the environment once per Terminal window with `source .venv/bin/acti
 | `SSL: CERTIFICATE_VERIFY_FAILED` during the install | Run **Install Certificates.command** in Applications, Python 3.12. |
 | `Library not loaded: @rpath/libomp.dylib` with XGBoost or LightGBM | They need OpenMP: `brew install libomp`. |
 | `Address already in use` for the dashboard | Another program uses port 8765: start with `--port 0` and open the address it prints. |
-| `zsh: no matches found: .[xgboost]` | Quote extras in zsh: `pip install -e ".[xgboost]"`. |
+| `zsh: no matches found: idslab[xgboost]` | Quote extras in zsh: `pip install "idslab[xgboost]"`. |
 
 ---
 
@@ -348,61 +309,44 @@ Check the Python version:
 python3 --version
 ```
 
-It must be 3.10 or newer. Install Python's virtual environment support and the download tools with
-your distribution's package manager:
+It must be 3.10 or newer. Install Python's virtual environment support with your distribution's
+package manager:
 
 | Distribution | Command |
 |---|---|
-| Debian, Ubuntu, Linux Mint | `sudo apt update && sudo apt install python3 python3-venv python3-pip git unzip` |
-| Fedora | `sudo dnf install python3 python3-pip git unzip` |
-| Arch, Manjaro | `sudo pacman -S python python-pip git unzip` |
-| openSUSE | `sudo zypper install python3 python3-pip git unzip` |
+| Debian, Ubuntu, Linux Mint | `sudo apt update && sudo apt install python3 python3-venv python3-pip` |
+| Fedora | `sudo dnf install python3 python3-pip` |
+| Arch, Manjaro | `sudo pacman -S python python-pip` |
+| openSUSE | `sudo zypper install python3 python3-pip` |
 
 If your distribution's Python is older than 3.10 (for example Ubuntu 20.04), install a newer one with
 [pyenv](https://github.com/pyenv/pyenv) or, on Ubuntu, the `deadsnakes` archive, and use that
-`python3.12` in step 4.
+`python3.12` in step 3.
 
-### 2. Download IDSLab
-
-**Option A, ZIP file:**
+### 2. Make a folder for IDSLab
 
 ```bash
-cd ~
-wget https://github.com/hashtagRR/IDSLab/archive/refs/heads/main.zip -O IDSLab-main.zip
-unzip IDSLab-main.zip              # without unzip: python3 -m zipfile -e IDSLab-main.zip .
+mkdir ~/idslab
+cd ~/idslab
 ```
 
-(Or download it from the green **Code** button on GitHub and extract it with your file manager.)
+This is the **IDSLab folder**; every command below runs in it.
 
-**Option B, Git:**
-
-```bash
-cd ~
-git clone https://github.com/hashtagRR/IDSLab.git
-```
-
-### 3. Go to the project folder
-
-```bash
-cd ~/IDSLab-main        # or: cd ~/IDSLab for a Git install
-ls pyproject.toml
-```
-
-### 4. Create the virtual environment
+### 3. Create the virtual environment
 
 ```bash
 python3 -m venv .venv
 ```
 
-### 5. Install IDSLab
+### 4. Install IDSLab
 
 ```bash
 .venv/bin/python -m pip install --upgrade pip
-.venv/bin/pip install -e .
+.venv/bin/pip install idslab
 .venv/bin/idslab --version
 ```
 
-### 6. Create the demo folder (do not skip)
+### 5. Create the demo folder (do not skip)
 
 The dashboard always works inside one folder, its **workspace**, which must exist before it starts.
 For a first try, let IDSLab create `demo` with example data and three ready designs:
@@ -412,10 +356,10 @@ For a first try, let IDSLab create `demo` with example data and three ready desi
 ```
 
 It writes `demo/data/train.parquet`, `demo/data/test.parquet` and three designs
-(`r1_router_gate.yaml`, `r1_four_layer.yaml`, `r2_anomaly_first.yaml`) inside the project folder. You
+(`r1_router_gate.yaml`, `r1_four_layer.yaml`, `r2_anomaly_first.yaml`) inside the IDSLab folder. You
 only do this once; without it the next step stops with `workspace folder demo does not exist`.
 
-### 7. Open the dashboard
+### 6. Open the dashboard
 
 ```bash
 .venv/bin/idslab dashboard --workspace demo --open
@@ -436,7 +380,7 @@ ssh -L 8765:127.0.0.1:8765 you@server
 Do not start the dashboard with `--host 0.0.0.0` on a shared network: it runs commands and has no
 login.
 
-### 8. A run from the command line (optional)
+### 7. A run from the command line (optional)
 
 ```bash
 .venv/bin/idslab run demo/r1_router_gate.yaml --out demo/runs
@@ -445,29 +389,25 @@ xdg-open demo/runs/r1-router-gate/report.html
 
 The same run without the dashboard; `xdg-open` shows the report in your browser.
 
-### 9. Next time
+### 8. Next time
 
 ```bash
-cd ~/IDSLab-main
+cd ~/idslab
 .venv/bin/idslab dashboard --workspace demo --open
 ```
 
 Or `source .venv/bin/activate` once per terminal and type plain `idslab`.
 
-### 10. Update or remove
+### 9. Update or remove
 
-- **Update, ZIP install:** download and extract the new ZIP, repeat steps 3 to 5, copy your files
-  across.
-- **Update, Git install:** `git pull && .venv/bin/pip install -e .`
-- **Remove:** delete the project folder.
+- **Update:** `.venv/bin/pip install --upgrade idslab` in the IDSLab folder; your files stay.
+- **Remove:** delete the IDSLab folder.
 
 ### GNU/Linux troubleshooting
 
 | What you see | Cause and fix |
 |---|---|
 | `The virtual environment was not created successfully because ensurepip is not available` | Install the venv package: `sudo apt install python3-venv` (or `python3.12-venv`). |
-| `unzip: command not found` | Install it (step 1), or extract with Python: `python3 -m zipfile -e IDSLab-main.zip .` |
-| `wget: command not found` | Use `curl -L -o IDSLab-main.zip https://github.com/hashtagRR/IDSLab/archive/refs/heads/main.zip` |
 | `error: externally-managed-environment` | `pip` was run outside the virtual environment; use `.venv/bin/pip`. |
 | `xdg-open: not found` or no browser opens | Open the file or http://127.0.0.1:8765/ in a browser yourself. |
 | `Address already in use` | Another program uses port 8765: start with `--port 0` and use the address it prints. |
@@ -475,17 +415,22 @@ Or `source .venv/bin/activate` once per terminal and type plain `idslab`.
 
 ---
 
-## One-line install from GitHub
+## From the source code
 
-With Python and Git installed, pip can install IDSLab straight from GitHub into an existing virtual
-environment, without downloading the folder first:
+Only needed to change IDSLab itself or to run its tests. Clone the repository (or download the ZIP
+from the green **Code** button on GitHub and extract it), then install it in place, with the
+development tools, inside the project folder (the one with `pyproject.toml`):
 
 ```bash
-pip install "git+https://github.com/hashtagRR/IDSLab.git"
+git clone https://github.com/hashtagRR/IDSLab.git
+cd IDSLab
+python3 -m venv .venv
+.venv/bin/pip install -e ".[dev]"
 ```
 
-This installs the program only; use `idslab example demo` to get the example data and designs. Once
-IDSLab is on PyPI, `pip install idslab` does the same.
+On Windows, use `py -3.12 -m venv .venv` and `.\.venv\Scripts\pip`. Changes to the source then take
+effect without reinstalling. To try the newest unreleased code without a clone,
+`pip install "git+https://github.com/hashtagRR/IDSLab.git"` works in any virtual environment.
 
 ## Optional extras
 
@@ -498,12 +443,14 @@ IDSLab is on PyPI, `pip install idslab` does the same.
 | `torch`     | torch             | `idslab.torch_models.TorchMLPClassifier`, `TorchAutoencoder`  |
 | `dev`       | pytest, ruff, pyright, build, twine | tests and checks                            |
 
-Install them in the project folder, with the quotes:
+Install them in the IDSLab folder, with the quotes:
 
 | System | Command |
 |---|---|
-| Windows | `.\.venv\Scripts\pip install -e ".[xgboost,pyod]"` |
-| macOS, GNU/Linux | `.venv/bin/pip install -e ".[xgboost,pyod]"` |
+| Windows | `.\.venv\Scripts\pip install "idslab[xgboost,pyod]"` |
+| macOS, GNU/Linux | `.venv/bin/pip install "idslab[xgboost,pyod]"` |
+
+(From the source code, use `pip install -e ".[xgboost,pyod]"` in the project folder instead.)
 
 A config that names a class from a missing extra fails when it is loaded, before any data is read,
 with the install command in the message; the dashboard's builder lists such models as "needs an
@@ -520,7 +467,7 @@ pip install torch --index-url https://download.pytorch.org/whl/cpu
 
 ## Tests and checks
 
-For changes to IDSLab itself:
+For changes to IDSLab itself, in a copy of the source code ([from the source code](#from-the-source-code)):
 
 ```bash
 .venv/bin/pip install -e ".[dev,xgboost,pyod,imbalance,torch]"
@@ -536,7 +483,7 @@ On Windows replace `.venv/bin/` with `.\.venv\Scripts\`.
 
 | Message | Fix |
 |---|---|
-| `workspace folder demo does not exist` | the dashboard's `--workspace` folder must exist: run `idslab example demo` first (step 6), or name a folder that holds your data; the path is relative to the folder the terminal is in |
+| `workspace folder demo does not exist` | the dashboard's `--workspace` folder must exist: run `idslab example demo` first (step 5), or name a folder that holds your data; the path is relative to the folder the terminal is in |
 | `cannot import module 'xgboost' (install it with: pip install idslab[xgboost])` | install the named extra |
 | `Encode: non-numeric columns not listed in 'categorical'` | add the text columns to the `categorical` list of `idslab.prep.Encode` in that stage's pipeline (the dashboard's Data step does this from your data) |
 | `train and test columns differ` | the two files need the same columns; drop extras with `dataset.drop` |

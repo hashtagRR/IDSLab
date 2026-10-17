@@ -591,12 +591,10 @@ def test_cli_dashboard_explains_a_bad_workspace(tmp_path, capsys, monkeypatch):
 
 
 def test_results_of_another_version_are_marked(ws_dir):
-    from idslab import __version__  # noqa: PLC0415
-
     ws = Workspace(str(ws_dir))
     [e] = ws.experiment_index()
     [o] = e["outputs"]
-    assert (o["versions"], o["other_version"], o["reportable_units"]) == ([__version__], [], 1)
+    assert (o["other_version"], o["reportable_units"]) == ([], 1)
     assert "_done_keys" not in o
     assert "_done_keys" not in ws.experiments()[0]
     summary = ws_dir / "runs/r2/standard/seed_0/summary.json"
@@ -605,14 +603,20 @@ def test_results_of_another_version_are_marked(ws_dir):
     summary.with_suffix(".bak").rename(summary)
     done = ws_dir / "runs/r2/standard/seed_0/DONE"
     data = json.loads(done.read_text())
-    data["fingerprints"]["package_version"] = "0.0.1"
+    data["fingerprints"]["results_version"] = "0"  # an older evaluation, from an older release
+    data["idslab_version"] = "0.0.1"
     done.write_text(json.dumps(data))
     [e] = ws.experiment_index()
     [o] = e["outputs"]
     assert (o["other_version"], o["reportable_units"], e["state"]) == (["0.0.1"], 0, "outdated")
     with pytest.raises(FileNotFoundError, match="no finished seeds"):  # what Rebuild report would meet
         write_report(str(ws_dir / "runs"), load(str(ws_dir / "r2.yaml")))
-    del data["fingerprints"]["package_version"]  # a DONE that does not say counts as another version
+    data["fingerprints"] = ["damaged"]  # a damaged DONE: the index still loads
+    done.write_text(json.dumps(data))
+    [e] = ws.experiment_index()
+    assert e["state"] == "outdated"
+    data["fingerprints"] = {}  # a DONE that says nothing counts as another evaluation
+    del data["idslab_version"]
     done.write_text(json.dumps(data))
     [e] = ws.experiment_index()
     assert (e["outputs"][0]["other_version"], e["state"]) == (["unknown"], "outdated")

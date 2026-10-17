@@ -32,6 +32,7 @@ from idslab.data import DataError, Splits, Table, file_fingerprint, load_table, 
 from idslab.external import ExternalContext, resolve, split_frame, write_split_export
 from idslab.features import FeatureStore, column_names
 from idslab.fitting import Fitted, fit_candidate, oof_scores
+from idslab.results_version import RESULTS_VERSION, normalized
 from idslab.graph import PoolScorer, describe, paths
 from idslab.selection import Selection, active_scores, joint_check, select
 
@@ -320,7 +321,7 @@ def run_seed(
         "config": cfg.fingerprint(),
         "data": data_fps,
         "split": split.fingerprint(table.row_id),
-        "package_version": __version__,
+        "results_version": RESULTS_VERSION,
         "family": family,
         "external": external_fingerprints(cfg, seed, family),
     }
@@ -329,7 +330,8 @@ def run_seed(
     if not force and os.path.isfile(done):
         try:
             with open(done, encoding="utf-8") as f:
-                same = json.load(f).get("fingerprints") == fps
+                stored = json.load(f)
+            same = isinstance(stored, dict) and normalized(stored.get("fingerprints")) == fps
         except (OSError, ValueError):
             same = False  # unreadable DONE: run the seed again
         if same:
@@ -472,7 +474,11 @@ def run_seed(
     write_json(os.path.join(d, "summary.json"), summary)
     write_json(
         done,
-        {"fingerprints": fps, "finished": datetime.datetime.now(datetime.timezone.utc).isoformat()},
+        {
+            "fingerprints": fps,
+            "idslab_version": __version__,  # who wrote it, for people; reuse follows the fingerprints
+            "finished": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        },
     )
     log.info("%s: finished in %.1fs", unit, summary["runtime_seconds"])
     return {"seed": seed, "family": family, "skipped": False, "summary": summary}

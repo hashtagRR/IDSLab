@@ -15,6 +15,7 @@ from idslab.config import Config
 from idslab.html_report import render
 from idslab.metrics import shown
 from idslab import __version__
+from idslab.results_version import RESULTS_VERSION, normalized
 from idslab.runner import data_fingerprints, external_fingerprints, write_json
 
 SYSTEMS = ("cascade", "B1_first_stage", "B2_first_stage_val_cutoff", "budget_matched_first_stage")
@@ -28,7 +29,7 @@ def load_summaries(
 ) -> tuple[list[dict], list[str]]:
     """Finished seed summaries that match ``expected`` fingerprints and ``seeds``.
 
-    ``expected`` holds the config, data and package-version fingerprints a seed's
+    ``expected`` holds the config, data and results-version fingerprints a seed's
     DONE file must carry; ``external`` gives the current fingerprints of a unit's external
     score files and sidecars, which must match too. The second value lists every unit left
     out and why.
@@ -41,7 +42,8 @@ def load_summaries(
         with open(path, encoding="utf-8") as f:
             s = json.load(f)
         with open(done, encoding="utf-8") as f:
-            fps = json.load(f).get("fingerprints", {})
+            stored = json.load(f)
+        fps = normalized(stored.get("fingerprints") if isinstance(stored, dict) else None)
         stale = [k for k, v in (expected or {}).items() if fps.get(k) != v]
         if external is not None and fps.get("external", {}) != external(s["seed"], s.get("family")):
             stale.append("external score files")
@@ -172,7 +174,8 @@ def aggregate(summaries: list[dict]) -> dict:
         "first_stage": summaries[0]["controls"]["first_stage"],
         "seeds": sorted({s["seed"] for s in summaries}),
         "units": [unit(s) for s in summaries],
-        "idslab_version": summaries[0]["idslab_version"],
+        # the release that built the report; units it reused may come from earlier releases
+        "idslab_version": __version__,
         "systems_test": systems,
         "cascade_minus_control": diffs,
         "frontier_gap": {
@@ -428,11 +431,11 @@ def write_report(
 ) -> tuple[str, str]:
     """Write report.md and report.json for the seeds of ``cfg`` plus ``extra_seeds``.
 
-    A seed counts only if it ran with this config, these data files and this IDSLab version.
+    A seed counts only if it ran with this config, these data files and this results version.
     """
     mode_dir = os.path.join(run_root, cfg.name, cfg.protocol.mode)
     data = data_fps if data_fps is not None else data_fingerprints(cfg)
-    expected = {"config": cfg.fingerprint(), "data": data, "package_version": __version__}
+    expected = {"config": cfg.fingerprint(), "data": data, "results_version": RESULTS_VERSION}
     seeds = set(cfg.protocol.seeds) | set(extra_seeds)
     summaries, left_out = load_summaries(
         mode_dir, expected, seeds, external=lambda seed, family: external_fingerprints(cfg, seed, family)

@@ -9,7 +9,7 @@ This page takes you from installation to a first report in about five minutes on
 dashboard. In short, inside a virtual environment:
 
 ```bash
-pip install "git+https://github.com/hashtagRR/IDSLab.git"
+pip install idslab
 ```
 
 ## A first run

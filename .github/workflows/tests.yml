@@ -26,7 +26,7 @@ jobs:
           pip install torch --index-url https://download.pytorch.org/whl/cpu
       - name: Lint
         run: |
-          ruff check src tests examples
-          ruff format --check src tests examples
+          ruff check src tests examples scripts
+          ruff format --check src tests examples scripts
       - name: Test
         run: pytest -q

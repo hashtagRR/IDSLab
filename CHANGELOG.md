@@ -1,7 +1,18 @@
 # Changelog
 
-Every version that can change results gets a new number: finished run units are reused only while
-the config, data and IDSLab version fingerprints match.
+Finished run units are reused while their config, data and results version fingerprints match. A
+release says when it raises the results version, which makes every experiment run once more; other
+releases keep finished runs.
+
+## Unreleased
+
+- Finished run units survive releases that do not change the evaluation. Fingerprints carry a results
+  version (`idslab.results_version.RESULTS_VERSION`, now 1) instead of the package version, and it
+  changes only with a release that changes what a run computes. Units from 0.2.0 and 0.3.0 count as
+  results version 1, so this release reuses them; `DONE` also records the release that wrote the unit.
+- IDSLab is on PyPI: `pip install idslab`. The install guides for Windows, macOS and GNU/Linux use
+  it, so they no longer need the source code; installing from source is described separately for
+  changing IDSLab itself.
 
 ## 0.3.0 (2026-10-17)
 

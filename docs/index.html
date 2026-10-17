@@ -204,7 +204,7 @@ footer a{color:var(--muted)}
     <p class="sub">Describe the stages, the model in each and the routes between them in one YAML file, or draw them in the web builder. IDSLab fits the design, makes every choice on validation data, reads the test set once, and shows what each stage adds.</p>
     <div class="ctas">
       <a class="btn primary" href="#start">Get started <svg class="i"><use href="#i-arrow"/></svg></a>
-      <span class="install mono"><span>$</span> pip install git+https://github.com/hashtagRR/IDSLab.git <button class="copy" data-copy="pip install git+https://github.com/hashtagRR/IDSLab.git" type="button">copy</button></span>
+      <span class="install mono"><span>$</span> pip install idslab <button class="copy" data-copy="pip install idslab" type="button">copy</button></span>
     </div>
   </div>
   <div class="mock" data-reveal aria-label="An IDSLab result, shown as an app panel">
@@ -420,15 +420,15 @@ footer a{color:var(--muted)}
   <div class="wrap">
     <div class="eyebrow" style="justify-content:center">Get started</div>
     <h2 style="margin-top:18px">Test your own cascade.</h2>
-    <p>Python 3.10 or newer and Git. The example writes synthetic flows and three reference designs, so the first run takes a minute. Step-by-step guides for Windows, macOS and GNU/Linux are in the install guide.</p>
+    <p>Python 3.10 or newer; IDSLab installs from PyPI. The example writes synthetic flows and three reference designs, so the first run takes a minute. Step-by-step guides for Windows, macOS and GNU/Linux are in the install guide.</p>
     <pre class="code" data-reveal><span class="k3">$</span> python3 -m venv .venv &amp;&amp; source .venv/bin/activate
-<span class="k3">$</span> pip install git+https://github.com/hashtagRR/IDSLab.git
+<span class="k3">$</span> pip install idslab
 <span class="k3">$</span> idslab example demo                              <span class="k3"># synthetic data, three reference designs</span>
 <span class="k3">$</span> idslab run demo/r1_router_gate.yaml --out demo/runs
 <span class="k3">$</span> idslab dashboard --workspace demo --open         <span class="k3"># the builder and the results in the browser</span>
 
 <span class="k3"># Windows, PowerShell, in a virtual environment: programs are in .venv\Scripts</span>
-<span class="k3">&gt;</span> py -3.12 -m venv .venv; .\.venv\Scripts\pip install git+https://github.com/hashtagRR/IDSLab.git
+<span class="k3">&gt;</span> py -3.12 -m venv .venv; .\.venv\Scripts\pip install idslab
 <span class="k3">&gt;</span> .\.venv\Scripts\idslab example demo
 <span class="k3">&gt;</span> .\.venv\Scripts\idslab dashboard --workspace demo --open</pre>
     <div class="ctas" style="justify-content:center">

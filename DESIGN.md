@@ -302,7 +302,7 @@ All controls use the same fitted first-stage model as the cascade.
 fallbacks, metrics, controls), `split_ids.parquet` (row ids per split), `per_flow.parquet` (TEST:
 scores, stage path, verdict, type, control predictions), `val_flow.parquet`, `DONE`.
 `DONE` holds fingerprints of the config, the data files, every imported external score file and its
-JSON sidecar, the split, and the package version; any mismatch reruns the unit, and a report leaves the
+JSON sidecar, the split, and the results version; any mismatch reruns the unit, and a report leaves the
 unit out until it is rerun. `runs/<name>/report.md` aggregates over seeds.
 
 ## 9. Example config
@@ -417,7 +417,7 @@ classifier that can clear its alarms). `idslab example` writes both with a synth
 
 **Reports and resume**
 
-- A seed enters the report only if its DONE file carries this config's, data's and IDSLab version's
+- A seed enters the report only if its DONE file carries this config's, data's and results version's
   fingerprints; the report covers `protocol.seeds` plus any seeds named with `--seeds`.
 - Every report writes `report.md`, `report.json` and `report.html`, all from one aggregate. The HTML
   page is self-contained (inline CSS and SVG, no scripts, no network). Its cascade map ends each route
@@ -426,8 +426,11 @@ classifier that can clear its alarms). `idslab example` writes both with a synth
   when a pool detector is active.
 - `idslab run` and `export-splits` log progress to stderr (unit started, each stage fitted, the
   configuration frozen on VAL, TEST evaluation). With `--jobs` above 1 the worker processes do not log.
-- The package version changes whenever a change can alter results, because finished seeds are reused
-  while the config, data and version fingerprints match.
+- The results version (`idslab/results_version.py`) changes whenever a change can alter what a run
+  computes, because finished seeds are reused while the config, data and results version fingerprints
+  match. The package version is not in the fingerprints, so a release that changes only the dashboard
+  or the docs keeps every finished unit. Units written before results versions existed (0.2.0, 0.3.0)
+  count as results version 1. `DONE` also records the IDSLab release that wrote the unit, for people.
 
 **Tests**
 

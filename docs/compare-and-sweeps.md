@@ -28,7 +28,7 @@ comparing two means: it removes the variation that both designs share. A unit wh
 rows differ is listed as skipped instead.
 
 Only units that each report included take part, so stale units (changed config, data, score files or
-version) never enter a comparison. A warning appears when the experiments use different objectives
+results version) never enter a comparison. A warning appears when the experiments use different objectives
 (only the baseline's objective is paired), different modes, or different data files.
 
 ## Sweeps
