@@ -3,8 +3,11 @@ message: "If you use IDSLab, please cite it as below."
 title: "IDSLab: an evaluation framework for staged intrusion detection systems"
 type: software
 authors:
-  - family-names: hashtagRR
+  - family-names: Relapanawa
+    given-names: Rathsara
     alias: hashtagRR
+    orcid: "https://orcid.org/0009-0002-0385-3757"
+doi: 10.5281/zenodo.23435536  # every version; Zenodo gives each release its own DOI as well
 version: 0.3.0
 date-released: "2026-10-17"
 license: AGPL-3.0-or-later

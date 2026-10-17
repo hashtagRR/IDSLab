@@ -3,6 +3,7 @@
 **[hashtagRR.github.io/IDSLab](https://hashtagRR.github.io/IDSLab)**
 
 [![tests](https://github.com/hashtagRR/IDSLab/actions/workflows/tests.yml/badge.svg)](https://github.com/hashtagRR/IDSLab/actions/workflows/tests.yml)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23435536.svg)](https://doi.org/10.5281/zenodo.23435536)
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/hashtagRR/IDSLab/main/docs/img/idslab-overview.svg" width="100%"
@@ -188,9 +189,11 @@ Step-by-step Windows setup, optional model libraries and troubleshooting:
 
 ## Citing
 
-If you use IDSLab in published work, please cite the version you used;
-[CITATION.cff](https://github.com/hashtagRR/IDSLab/blob/main/CITATION.cff) has the details, and GitHub
-shows them under "Cite this repository".
+If you use IDSLab in published work, please cite the version you used. Every release is archived on
+Zenodo with its own DOI: [10.5281/zenodo.23435536](https://doi.org/10.5281/zenodo.23435536) opens the
+latest release, and its list of versions leads to each one's DOI and a ready-made citation.
+[CITATION.cff](https://github.com/hashtagRR/IDSLab/blob/main/CITATION.cff) holds the author and that
+DOI, and GitHub shows them under "Cite this repository".
 
 ## License
 
