@@ -6,6 +6,8 @@ releases keep finished runs.
 
 ## Unreleased
 
+## 0.3.1 (2026-10-17)
+
 - Finished run units survive releases that do not change the evaluation. Fingerprints carry a results
   version (`idslab.results_version.RESULTS_VERSION`, now 1) instead of the package version, and it
   changes only with a release that changes what a run computes. Units from 0.2.0 and 0.3.0 count as
