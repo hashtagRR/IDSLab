@@ -163,8 +163,9 @@ The rules: VAL and TEST need `fitted` scores; FIT rows may only carry `oof` scor
 on a row the model trained on is rejected); a stage whose scores feed another stage needs `oof`
 scores for its FIT rows; a calibrated stage needs `trained_on: fit_base`, and then also `fitted`
 scores on CAL; external type scores are not calibrated; pool detectors cannot use score files.
-Any mismatch stops the run with a message naming the problem. Score files are part of the run
-fingerprint, so a changed file reruns its unit.
+Any mismatch stops the run with a message naming the problem. Score files and their sidecars are
+part of the run fingerprint, so a change to either reruns the unit (and is checked again), and a
+report leaves the unit out until it is rerun.
 
 [examples/external_score_job.py](../examples/external_score_job.py) is a complete job (a small
 MLP standing in for the outside model), including the out-of-fold scores.

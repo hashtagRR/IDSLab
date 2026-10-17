@@ -10,6 +10,7 @@ from sklearn.ensemble import RandomForestClassifier
 from idslab.config import from_dict
 from idslab.data import load_table, make_splits
 from idslab.external import ExternalScoreError
+from idslab.report import write_report
 from idslab.runner import export_splits, run
 
 
@@ -167,3 +168,33 @@ def test_joint_check_finds_what_greedy_missed_in_r2(data_dir, r2, tmp_path):
     if jc["differs_from_greedy"]:
         assert jc["val_accuracy_joint"] > jc["val_accuracy_greedy"]
         assert jc["configuration"]["screen"] != res["summary"]["frozen_configuration"]["screen"]
+
+
+def test_a_changed_sidecar_reruns_the_unit_and_is_checked_again(data_dir, ext_cfg, tmp_path):
+    [path] = export_splits(ext_cfg, str(tmp_path / "splits"))
+    score_file = str(tmp_path / "router_0.parquet")
+    outside_job(data_dir, path, score_file, oof=False)
+    out = str(tmp_path / "runs")
+    [first] = run(ext_cfg, out_root=out)
+    assert first["skipped"] is False
+    with open(score_file + ".json", encoding="utf-8") as f:
+        side = json.load(f)
+    side["seed"] = 7  # only the sidecar changes, and it no longer matches the unit
+    with open(score_file + ".json", "w", encoding="utf-8") as f:
+        json.dump(side, f)
+    with pytest.raises(ExternalScoreError, match="sidecar seed"):
+        run(ext_cfg, out_root=out)  # not skipped: the provenance checks run again
+
+
+def test_reports_leave_out_units_whose_score_files_changed(data_dir, ext_cfg, tmp_path):
+    [path] = export_splits(ext_cfg, str(tmp_path / "splits"))
+    score_file = str(tmp_path / "router_0.parquet")
+    outside_job(data_dir, path, score_file, oof=False)
+    out = str(tmp_path / "runs")
+    run(ext_cfg, out_root=out)
+    write_report(out, ext_cfg)  # fresh: included
+    frame = pd.read_parquet(score_file)
+    frame["score"] = 1 - frame["score"]
+    frame.to_parquet(score_file, index=False)
+    with pytest.raises(FileNotFoundError, match="external score files changed"):
+        write_report(out, ext_cfg)  # the only unit is stale now

@@ -60,7 +60,8 @@ stage, so any selection choice can be recomputed.
  "finished": "2026-10-16T09:37:40+00:00"}
 ```
 
-Written last, so a unit without `DONE` did not finish. See [Resume](protocol.md#resume).
+Written last, so a unit without `DONE` did not finish. `external` maps every external score file and
+its `.json` sidecar to its hash. See [Resume](protocol.md#resume).
 
 ## Splits export
 

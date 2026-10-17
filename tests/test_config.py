@@ -397,3 +397,16 @@ def test_dump_yaml_round_trips(name):
     assert parse_yaml(text) == raw
     assert "'off'" not in text  # YAML 1.2 rules: off is a word
     assert '"off"' not in text
+
+
+def test_chained_score_dependencies_are_refused(r4):
+    # router feeds the type stage; letting the router use the entry stage's score as well makes a
+    # chain binary -> router -> type, whose out-of-fold scores would not be out of fold
+    r4["stages"]["router"]["extra_features"] = ["binary"]
+    with pytest.raises(ConfigError, match="chained score dependencies are not supported"):
+        from_dict(r4)
+    r4["stages"]["router"].pop("extra_features")
+    r4["stages"]["router"]["train_on"] = "hard"
+    r4["stages"]["router"]["hard"] = {"source": "binary", "band": [0.3, 0.7]}
+    with pytest.raises(ConfigError, match="chained score dependencies"):
+        from_dict(r4)

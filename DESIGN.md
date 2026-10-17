@@ -62,6 +62,10 @@ Rules:
 3. The union must be acyclic; the config is rejected otherwise.
 4. Removing a stage (ablation) and switching its decision off are different. Ablation reports use
    "decision off"; feature sources keep their scores. The report says so.
+5. A stage whose scores feed another stage must not itself use other stages' scores (no chain such as
+   A feeds B feeds C). B's out-of-fold scores are refitted per fold on B's own score features, and
+   those features came from A models that saw B's held-out fold, so B's scores would carry that
+   fold's labels. Such a config is rejected at load.
 
 ## 1. Data contract
 
@@ -297,8 +301,9 @@ All controls use the same fitted first-stage model as the cascade.
 `runs/<name>/<mode>/seed_<s>[/fam_<h>]/`: `summary.json` (selected configuration, selection trace,
 fallbacks, metrics, controls), `split_ids.parquet` (row ids per split), `per_flow.parquet` (TEST:
 scores, stage path, verdict, type, control predictions), `val_flow.parquet`, `DONE`.
-`DONE` holds fingerprints of the config, the data files, every imported external score file, the
-split, and the package version; any mismatch reruns the unit. `runs/<name>/report.md` aggregates over seeds.
+`DONE` holds fingerprints of the config, the data files, every imported external score file and its
+JSON sidecar, the split, and the package version; any mismatch reruns the unit, and a report leaves the
+unit out until it is rerun. `runs/<name>/report.md` aggregates over seeds.
 
 ## 9. Example config
 
@@ -497,6 +502,9 @@ server and static files; it adds no dependencies.
 - **Speed and memory.** The frontier interval rebuilds the convex hull per bootstrap replicate in
   Python; a vectorised hull would cut the time on large TEST sets. Parallel seeds send the whole data
   table to each worker; loading it once per worker would save memory.
+- **Chained score dependencies.** Rule 5 of section 0.2 refuses them. Supporting them needs nested
+  folds: within each outer fold of B, A refitted on the remaining folds to give B's training rows
+  their features, which multiplies the fits by the number of folds at each level of the chain.
 - **One budget helper.** Two budget rules exist on purpose: a budget stage flags about b of the benign
   VAL rows reaching it (a quantile), and the budget-matched control takes the highest threshold whose
   VAL false alarm rate is at least the target. A shared helper could hold both.

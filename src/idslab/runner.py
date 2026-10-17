@@ -243,15 +243,17 @@ class Provider:
         return f.score(self.store.frame(st.extra_features, self.split.test))
 
 
-def external_fingerprints(cfg: Config, table: Table, split: Splits, seed: int, family: str | None) -> dict:
-    """Hash of every external score file of this unit, so a changed file reruns the unit."""
-    ctx = ExternalContext(cfg.base_dir, seed, family, split.fingerprint(table.row_id), feeds_others=False)
+def external_fingerprints(cfg: Config, seed: int, family: str | None) -> dict:
+    """Hash of every external score file of a run unit and of its JSON sidecar, so a change to either
+    reruns the unit (on ``idslab run``) and leaves it out of reports until it is rerun."""
+    ctx = ExternalContext(cfg.base_dir, seed, family, split_fingerprint="", feeds_others=False)
     out = {}
     for st in cfg.stages.values():
         for c in st.candidates:
             if c.external is not None:
                 path = resolve(c.external, ctx)
-                out[path] = file_fingerprint(path) if os.path.isfile(path) else "missing"
+                for p in (path, path + ".json"):
+                    out[p] = file_fingerprint(p) if os.path.isfile(p) else "missing"
     return out
 
 
@@ -315,7 +317,7 @@ def run_seed(
         "split": split.fingerprint(table.row_id),
         "package_version": __version__,
         "family": family,
-        "external": external_fingerprints(cfg, table, split, seed, family),
+        "external": external_fingerprints(cfg, seed, family),
     }
     d = unit_dir(out_root, cfg, seed, family)
     done = os.path.join(d, "DONE")

@@ -7,7 +7,7 @@ from __future__ import annotations
 import glob
 import json
 import os
-from collections.abc import Collection, Sequence
+from collections.abc import Callable, Collection, Sequence
 
 import numpy as np
 
@@ -15,18 +15,23 @@ from idslab.config import Config
 from idslab.html_report import render
 from idslab.metrics import shown
 from idslab import __version__
-from idslab.runner import data_fingerprints, write_json
+from idslab.runner import data_fingerprints, external_fingerprints, write_json
 
 SYSTEMS = ("cascade", "B1_first_stage", "B2_first_stage_val_cutoff", "budget_matched_first_stage")
 
 
 def load_summaries(
-    mode_dir: str, expected: dict | None = None, seeds: Collection[int] | None = None
+    mode_dir: str,
+    expected: dict | None = None,
+    seeds: Collection[int] | None = None,
+    external: Callable[[int, str | None], dict] | None = None,
 ) -> tuple[list[dict], list[str]]:
     """Finished seed summaries that match ``expected`` fingerprints and ``seeds``.
 
     ``expected`` holds the config, data and package-version fingerprints a seed's
-    DONE file must carry; the second value lists every seed left out and why.
+    DONE file must carry; ``external`` gives the current fingerprints of a unit's external
+    score files and sidecars, which must match too. The second value lists every unit left
+    out and why.
     """
     kept, left_out = [], []
     for path in sorted(glob.glob(os.path.join(mode_dir, "seed_*", "**", "summary.json"), recursive=True)):
@@ -38,6 +43,8 @@ def load_summaries(
         with open(done, encoding="utf-8") as f:
             fps = json.load(f).get("fingerprints", {})
         stale = [k for k, v in (expected or {}).items() if fps.get(k) != v]
+        if external is not None and fps.get("external", {}) != external(s["seed"], s.get("family")):
+            stale.append("external score files")
         if seeds is not None and s["seed"] not in seeds:
             left_out.append(f"seed {s['seed']}: not in the seeds of this report")
         elif stale:
@@ -427,9 +434,12 @@ def write_report(
     data = data_fps if data_fps is not None else data_fingerprints(cfg)
     expected = {"config": cfg.fingerprint(), "data": data, "package_version": __version__}
     seeds = set(cfg.protocol.seeds) | set(extra_seeds)
-    summaries, left_out = load_summaries(mode_dir, expected, seeds)
+    summaries, left_out = load_summaries(
+        mode_dir, expected, seeds, external=lambda seed, family: external_fingerprints(cfg, seed, family)
+    )
     if not summaries:
-        raise FileNotFoundError(f"no finished seeds of this config under {mode_dir}")
+        why = f" ({'; '.join(left_out)})" if left_out else ""
+        raise FileNotFoundError(f"no finished seeds of this config under {mode_dir}{why}")
     agg = aggregate(summaries)
     agg["seeds_left_out"] = left_out
     agg["stage_cost"] = stage_cost(summaries, cfg)

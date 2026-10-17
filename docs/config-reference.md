@@ -106,7 +106,7 @@ cascade objective. When the reaching rows hold one class only, `auc` falls back 
 | `calibrate`      | `none`      | `sigmoid` or `isotonic`: fit on FIT-base, calibrate on CAL         |
 | `train_on`       | `all`       | `all`, `attack` (multiclass only), `hard`, or a list of types      |
 | `hard`           |             | `{source: <stage>, band: [low, high]}` with `train_on: hard`       |
-| `extra_features` | `[]`        | stages whose scores become extra input columns (out-of-fold on FIT) |
+| `extra_features` | `[]`        | stages whose scores become extra input columns (out-of-fold on FIT); a source must not itself use other stages' scores |
 | `role`           | `decide` (classifier), `annotate` (multiclass) | see Roles                         |
 | `next`           |             | where an annotate stage sends every flow                          |
 | `type_objective` | `macro_f1`  | multiclass only: `macro_f1`, `accuracy` or `auc` for annotate selection |
@@ -115,6 +115,10 @@ cascade objective. When the reaching rows hold one class only, `auc` falls back 
 normal type and at least one attack type. `train_on: hard` trains a specialist on the rows whose
 out-of-fold score from `source` lies inside `band`; the band is fixed in the config, never chosen on
 VAL.
+
+A stage whose scores are used by another stage (through `extra_features` or `hard.source`) must not
+itself use other stages' scores: chains such as A feeds B feeds C are refused at load, because B's
+out-of-fold scores could then carry labels of their own held-out folds through A's scores.
 
 ### Detector keys
 

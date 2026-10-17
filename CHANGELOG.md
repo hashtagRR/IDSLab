@@ -5,6 +5,16 @@ the config, data and IDSLab version fingerprints match.
 
 ## Unreleased
 
+Fixed (these change which finished units are reused, so the next release gets a new version):
+
+- Chained score dependencies (a stage that feeds another stage while using a third stage's scores)
+  are refused at config load. Their out-of-fold scores were not fully out of fold: the inner stage's
+  fold refits used features from models that had seen the held-out fold.
+- External score sidecars (`.json`) are part of the unit fingerprint, so editing a sidecar reruns the
+  unit and its provenance is checked again; before, the finished unit was skipped.
+- Reports check each unit's external score files against the current ones and leave out units whose
+  files changed, naming the reason; before, stale results from replaced files stayed in the report.
+
 - Install guide rewritten as three step-by-step guides (Windows, macOS, GNU/Linux) from the download
   (ZIP or Git) to the dashboard, each with its own troubleshooting table; a one-line install from
   GitHub (`pip install git+https://github.com/hashtagRR/IDSLab.git`) replaces the PyPI command until

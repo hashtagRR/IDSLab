@@ -1058,6 +1058,15 @@ def _dependencies(cfg: Config, errs: list[str]) -> None:
                 errs.append(
                     f"stage {name}: hard.source '{src}' must give one score per row (not a multiclass stage)"
                 )
+            elif cfg.sources(src):
+                # The out-of-fold scores of src are refitted per fold on features of its own sources,
+                # and those features were made by models that saw the held-out fold. Nesting the folds
+                # would fix it at folds-times the cost per level; until then the chain is refused.
+                errs.append(
+                    f"stage {name}: {what} '{src}' itself uses the scores of {list(cfg.sources(src))}; "
+                    "chained score dependencies are not supported, because the out-of-fold scores of "
+                    f"'{src}' would carry labels of their held-out folds through its own score features"
+                )
     if errs:
         return
     edges = cfg.edges()

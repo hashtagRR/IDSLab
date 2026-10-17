@@ -132,6 +132,7 @@ three non-type labels count as wrong.
 ## Resume
 
 A finished run unit writes `DONE` with fingerprints of the config, the data files, the split, every
-external score file and the IDSLab version. `idslab run` skips a unit whose fingerprints all match
-and reruns it otherwise (`--force` reruns regardless). Reports include only units whose fingerprints
-match the current config, data and version, and list any unit they leave out.
+external score file and its JSON sidecar, and the IDSLab version. `idslab run` skips a unit whose
+fingerprints all match and reruns it otherwise (`--force` reruns regardless). Reports include only
+units whose fingerprints match the current config, data, external score files and version, and list
+any unit they leave out with the reason.
