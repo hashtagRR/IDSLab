@@ -2,7 +2,6 @@
 
 **[hashtagRR.github.io/IDSLab](https://hashtagRR.github.io/IDSLab)**
 
-[![tests](https://github.com/hashtagRR/IDSLab/actions/workflows/tests.yml/badge.svg)](https://github.com/hashtagRR/IDSLab/actions/workflows/tests.yml)
 [![PyPI](https://img.shields.io/pypi/v/idslab)](https://pypi.org/project/idslab/)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23435536.svg)](https://doi.org/10.5281/zenodo.23435536)
 
