@@ -26,6 +26,8 @@ choice and the last output folder per command are kept in the browser).
 | Overview        | counts of configs, experiments and finished units; latest runs; the current job |
 | Configs         | every YAML file in the workspace that has `entry` and `stages`                |
 | Builder         | draw and edit a design as a graph; see below                                 |
+| Compare         | experiments side by side, paired on the same TEST flows when they share data and splits ([guide](compare-and-sweeps.md)) |
+| Sweeps          | write, check and run sweep files: one base config, several variants ([guide](compare-and-sweeps.md)) |
 | Config editor   | YAML with line numbers, validation as you type (the loader the CLI uses), a cascade preview drawn from the parsed routes, warnings for missing data files, and the Run, Report and Export splits panels |
 | New config      | start from a blank config or one of the reference designs                    |
 | Runs            | every run output found in the workspace, with the cascade and first-stage TEST objective |

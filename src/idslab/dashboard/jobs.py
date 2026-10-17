@@ -22,8 +22,14 @@ from idslab.config import load
 from idslab.dashboard.workspace import PathError, Workspace
 
 LOG_LINES = 5000
-COMMANDS = ("run", "report", "export-splits", "example")
-DEFAULT_OUT = {"run": "runs", "report": "runs", "export-splits": "splits"}
+COMMANDS = ("run", "report", "export-splits", "example", "compare", "sweep")
+DEFAULT_OUT = {
+    "run": "runs",
+    "report": "runs",
+    "export-splits": "splits",
+    "compare": "comparisons",
+    "sweep": "runs",
+}
 
 
 class JobError(ValueError):
@@ -73,6 +79,10 @@ def build_command(ws: Workspace, body: dict) -> tuple[list[str], dict]:
             target = ws.resolve(body.get("directory") or "example")
             argv = ["example", _arg(ws, target), *(["--overwrite"] if body.get("overwrite") else [])]
             return argv, {"command": command, "target": ws.rel(target), "target_kind": "folder"}
+        if command == "compare":
+            return _compare_command(ws, body)
+        if command == "sweep":
+            return _sweep_command(ws, body)
         config = ws.resolve(body.get("config"), kind="file")
         out = ws.resolve(body.get("out") or DEFAULT_OUT[command])
     except PathError as e:
@@ -97,6 +107,57 @@ def build_command(ws: Workspace, body: dict) -> tuple[list[str], dict]:
         "config": ws.rel(config),
         "target": ws.rel(target),
         "target_kind": kind,
+    }
+
+
+def _bootstrap(v: Any) -> int:
+    try:
+        n = int(v if v not in (None, "") else 1000)
+    except (TypeError, ValueError):
+        raise JobError("bootstrap must be a whole number") from None
+    if n < 0 or n > 100000:
+        raise JobError("bootstrap must be between 0 and 100000")
+    return n
+
+
+def _compare_command(ws: Workspace, body: dict) -> tuple[list[str], dict]:
+    exps = body.get("experiments")
+    if not isinstance(exps, list) or len(exps) < 2:
+        raise JobError("choose at least two experiments")
+    try:
+        paths = [ws.resolve(str(p), kind="dir") for p in exps]
+        out = ws.resolve(
+            body.get("out") or "comparisons/" + "-vs-".join(os.path.basename(p) for p in paths)[:120]
+        )
+    except PathError as e:
+        raise JobError(str(e)) from None
+    argv = ["compare", *(_arg(ws, p) for p in paths), "--out", _arg(ws, out)]
+    argv += ["--bootstrap", str(_bootstrap(body.get("bootstrap")))]
+    return argv, {"command": "compare", "target": ws.rel(out), "target_kind": "folder"}
+
+
+def _sweep_command(ws: Workspace, body: dict) -> tuple[list[str], dict]:
+    from idslab.sweep import load_sweep  # noqa: PLC0415
+
+    try:
+        path = ws.resolve(body.get("sweep"), kind="file")
+        out = ws.resolve(body.get("out") or DEFAULT_OUT["sweep"])
+    except PathError as e:
+        raise JobError(str(e)) from None
+    sweep = load_sweep(path)  # SweepError reaches the page before anything starts
+    argv = ["sweep", _arg(ws, path), "--out", _arg(ws, out)]
+    seeds = _seeds(body.get("seeds"))
+    if seeds:
+        argv += ["--seeds", *map(str, seeds)]
+    argv += ["--jobs", str(_jobs(body.get("jobs"))), "--bootstrap", str(_bootstrap(body.get("bootstrap")))]
+    if body.get("force"):
+        argv.append("--force")
+    target = os.path.join(out, sweep.name, "comparison")
+    return argv, {
+        "command": "sweep",
+        "config": ws.rel(path),
+        "target": ws.rel(target),
+        "target_kind": "folder",
     }
 
 

@@ -23,7 +23,9 @@ from idslab import __version__
 from idslab.cli import EXAMPLES, validation_text
 from idslab.config import EXTRAS, MODES, OBJECTIVES, ConfigError, dump_yaml, from_dict, parse_yaml
 from idslab.dashboard.jobs import COMMANDS, DEFAULT_OUT, Job, JobError, build_command
+from idslab.compare import CompareError, compare
 from idslab.dashboard.catalog import catalog
+from idslab.sweep import SweepError, dotted_keys, parse_sweep
 from idslab.plugins import load as load_plugins
 from idslab.dashboard.workspace import PathError, Workspace, describe, inspect_data
 from idslab.runner import to_jsonable
@@ -32,7 +34,17 @@ logger = logging.getLogger(__name__)
 
 MAX_BODY = 2_000_000
 MAX_FILE = 50_000_000
-STATIC = {"index.html", "styles.css", "app.js", "core.js", "charts.js", "views.js", "editor.js", "builder.js"}
+STATIC = {
+    "index.html",
+    "styles.css",
+    "app.js",
+    "core.js",
+    "charts.js",
+    "views.js",
+    "editor.js",
+    "builder.js",
+    "compare.js",
+}
 PAGE_CSP = (
     "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
     "frame-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
@@ -178,6 +190,8 @@ class Handler(BaseHTTPRequestHandler):
             return inspect_data(app.ws.resolve(q.get("path", ""), kind="file"))
         if path == "/api/layout":
             return app.ws.layout(q.get("path", ""))
+        if path == "/api/sweeps":
+            return app.ws.sweeps()
         raise LookupError(path)
 
     def _static(self, name: str) -> None:
@@ -255,6 +269,37 @@ class Handler(BaseHTTPRequestHandler):
                     return self._error(HTTPStatus.BAD_REQUEST, "config must be a JSON object")
                 text = dump_yaml(raw)
                 return self._json({"yaml": text, **app.validate(text, body.get("path") or None)})
+            if path == "/api/compare":
+                exps = body.get("experiments")
+                if not isinstance(exps, list) or len(exps) < 2:
+                    return self._error(HTTPStatus.BAD_REQUEST, "choose at least two experiments")
+                paths = [app.ws.resolve(str(p), kind="dir") for p in exps]
+                try:
+                    result = compare(paths, bootstrap=min(int(body.get("bootstrap") or 300), 2000))
+                except CompareError as e:
+                    return self._error(HTTPStatus.BAD_REQUEST, str(e))
+                for h in result["experiments"]:
+                    h["path"] = app.ws.rel(h["path"])
+                return self._json(result)
+            if path == "/api/sweep/check":
+                text = str(body.get("yaml", ""))
+                rel = body.get("path") or ""
+                folder = os.path.dirname(app.ws.resolve(rel)) if rel else app.ws.root
+                try:
+                    sw = parse_sweep(text, folder)
+                except SweepError as e:
+                    return self._json({"ok": False, "error": str(e)})
+                with open(sw.base_path, encoding="utf-8") as f:
+                    keys = dotted_keys(parse_yaml(f.read()))
+                return self._json(
+                    {
+                        "ok": True,
+                        "name": sw.name,
+                        "base": app.ws.rel(sw.base_path),
+                        "variants": [{"name": v.name, "label": v.label} for v in sw.variants],
+                        "keys": keys,
+                    }
+                )
             if path == "/api/layout":
                 positions = body.get("positions")
                 if not isinstance(positions, dict):
@@ -268,7 +313,7 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/job/stop":
                 app.job.stop()
                 return self._json(app.job.snapshot())
-        except (PathError, JobError, ConfigError, ImportError) as e:
+        except (PathError, JobError, ConfigError, SweepError, ImportError) as e:
             status = HTTPStatus.CONFLICT if "already running" in str(e) else HTTPStatus.BAD_REQUEST
             return self._error(status, str(e))
         except OSError as e:

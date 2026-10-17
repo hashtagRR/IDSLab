@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2026 hashtagRR
-"""Command line: idslab validate | run | report | export-splits | example | dashboard."""
+"""Command line: idslab validate | run | report | export-splits | example | compare | sweep | dashboard."""
 
 from __future__ import annotations
 
@@ -13,11 +13,13 @@ from importlib import resources
 
 from idslab import __version__
 from idslab.adapters import ContractError
+from idslab.compare import CompareError
 from idslab.config import Config, ConfigError, load
 from idslab.data import DataError
 from idslab.fitting import FitError
 from idslab.report import write_report
 from idslab.runner import data_fingerprints, export_splits, run
+from idslab.sweep import SweepError
 from idslab.synthetic import write_example
 
 EXAMPLES = ("r1_router_gate.yaml", "r2_anomaly_first.yaml", "r1_four_layer.yaml")
@@ -99,6 +101,55 @@ def _example(args: argparse.Namespace) -> int:
     return 0
 
 
+def _compare(args: argparse.Namespace) -> int:
+    from idslab.compare import compare, write_comparison  # noqa: PLC0415
+
+    c = compare(args.experiments, bootstrap=args.bootstrap)
+    out = args.out or os.path.join(
+        "comparisons", "-vs-".join(os.path.basename(os.path.normpath(p)) for p in args.experiments)[:120]
+    )
+    md, _, html = write_comparison(c, out)
+    goal = c["objective"]
+    for h in c["experiments"]:
+        cas, first = (h["cascade"] or {}).get("mean"), (h["first_stage"] or {}).get("mean")
+        print(f"{h['name']}: TEST {goal} cascade {_num(cas)}, first stage alone {_num(first)}")
+    for p in c["paired"]:
+        n = len(p["per_unit"])
+        print(
+            f"{p['other']} minus {p['base']}: {_num(p['mean_diff'], signed=True)} over {n} paired units "
+            f"(CI above 0 in {p['units_ci_above_zero']}, below 0 in {p['units_ci_below_zero']})"
+        )
+    for w in c["warnings"]:
+        print(f"warning: {w}")
+    print(f"comparison: {md} (and {html})")
+    return 0
+
+
+def _num(v: float | None, signed: bool = False) -> str:
+    return "n/a" if v is None else (f"{v:+.4f}" if signed else f"{v:.4f}")
+
+
+def _sweep(args: argparse.Namespace) -> int:
+    from idslab.sweep import load_sweep, run_sweep  # noqa: PLC0415
+
+    if args.dry_run:
+        sw = load_sweep(args.sweep)
+        print(f"{args.sweep}: valid; {len(sw.variants)} variants of {sw.base_path}")
+        for v in sw.variants:
+            print(f"  {v.name}: {v.label}")
+        return 0
+    md, _, html = run_sweep(
+        args.sweep,
+        out_root=args.out,
+        seeds=args.seeds,
+        jobs=args.jobs,
+        force=args.force,
+        bootstrap=args.bootstrap,
+    )
+    print(f"comparison: {md} (and {html})")
+    return 0
+
+
 def _dashboard(args: argparse.Namespace) -> int:
     from idslab.dashboard.server import App, make_server  # noqa: PLC0415  (only this command needs it)
 
@@ -166,6 +217,26 @@ def build_parser() -> argparse.ArgumentParser:
     e.add_argument("--overwrite", action="store_true")
     e.set_defaults(func=_example)
 
+    cp = sub.add_parser("compare", help="compare finished experiments side by side, paired where possible")
+    cp.add_argument(
+        "experiments", nargs="+", help="experiment folders (<out>/<name>); the first is the baseline"
+    )
+    cp.add_argument("--out", help="folder for compare.md/.json/.html (default: comparisons/<names>)")
+    cp.add_argument("--bootstrap", type=int, default=1000, help="paired bootstrap replicates (default 1000)")
+    cp.set_defaults(func=_compare)
+
+    sw = sub.add_parser("sweep", help="run every variant of a sweep file and compare them")
+    sw.add_argument("sweep", help="sweep file (YAML: name, base, and variants or grid)")
+    sw.add_argument("--out", default="runs", help="output root (default: runs)")
+    sw.add_argument("--seeds", type=int, nargs="+", help="run only these seeds")
+    sw.add_argument("--jobs", type=_jobs, default=1, help="seeds run in parallel (default 1, -1 = all cores)")
+    sw.add_argument("--force", action="store_true", help="rerun seeds that are already done")
+    sw.add_argument("--bootstrap", type=int, default=1000, help="paired bootstrap replicates (default 1000)")
+    sw.add_argument(
+        "--dry-run", action="store_true", help="check the sweep and list its variants, run nothing"
+    )
+    sw.set_defaults(func=_sweep)
+
     d = sub.add_parser("dashboard", help="open the web dashboard over a workspace folder")
     d.add_argument("--workspace", default=".", help="folder with configs, data and runs (default: .)")
     d.add_argument("--host", default="127.0.0.1", help="address to bind (default: 127.0.0.1)")
@@ -177,7 +248,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    if args.command in ("run", "export-splits"):  # progress lines on stderr; results stay on stdout
+    if args.command in ("run", "export-splits", "sweep"):  # progress lines on stderr; results stay on stdout
         handler = logging.StreamHandler()
         handler.setFormatter(logging.Formatter("%(asctime)s %(message)s", "%H:%M:%S"))
         log = logging.getLogger("idslab")
@@ -186,7 +257,16 @@ def main(argv: list[str] | None = None) -> int:
         log.setLevel(logging.INFO)
     try:
         return int(args.func(args))
-    except (ConfigError, DataError, FitError, ContractError, ImportError, OSError) as e:
+    except (
+        ConfigError,
+        DataError,
+        FitError,
+        ContractError,
+        CompareError,
+        SweepError,
+        ImportError,
+        OSError,
+    ) as e:
         print(f"idslab: {e}", file=sys.stderr)
         return 2
     except (ValueError, RuntimeError, IndexError) as e:

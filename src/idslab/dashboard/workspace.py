@@ -99,6 +99,37 @@ class Workspace:
                         return out
         return out
 
+    def sweeps(self) -> list[dict]:
+        """YAML files that look like sweep files (a mapping with base and variants or grid)."""
+        out = []
+        for d, dirs, files in self._walk():
+            if _is_mode_dir(d, dirs):
+                dirs[:] = []
+                continue
+            for f in files:
+                if not f.endswith((".yaml", ".yml")):
+                    continue
+                path = os.path.join(d, f)
+                try:
+                    if os.path.getsize(path) > MAX_CONFIG_BYTES:
+                        continue
+                    with open(path, encoding="utf-8") as fh:
+                        raw = parse_yaml(fh.read())
+                except (OSError, ValueError, UnicodeDecodeError):
+                    continue
+                if isinstance(raw, dict) and "base" in raw and ("variants" in raw or "grid" in raw):
+                    n = len(raw.get("variants") or {}) if "variants" in raw else None
+                    out.append(
+                        {
+                            "path": self.rel(path),
+                            "name": str(raw.get("name", "")),
+                            "base": str(raw.get("base")),
+                            "variants": n,
+                            "mtime": os.path.getmtime(path),
+                        }
+                    )
+        return out
+
     def config_text(self, rel: str) -> str:
         path = self.resolve(rel, kind="file")
         if os.path.getsize(path) > MAX_CONFIG_BYTES:

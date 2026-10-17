@@ -161,7 +161,8 @@ Step-by-step Windows setup, optional model libraries and troubleshooting:
 | [Protocol and controls](https://github.com/hashtagRR/IDSLab/blob/main/docs/protocol.md) | splits, greedy selection on VAL, the controls and what each reported number means |
 | [Models in stages](https://github.com/hashtagRR/IDSLab/blob/main/docs/models.md) | score contracts, pipelines and search, PyTorch, your own adapter, scores from models trained elsewhere |
 | [Outputs](https://github.com/hashtagRR/IDSLab/blob/main/docs/outputs.md) | the report pages and every file a run writes |
-| [Command line](https://github.com/hashtagRR/IDSLab/blob/main/docs/cli.md) | `validate`, `run`, `report`, `export-splits`, `example`, `dashboard` |
+| [Comparing designs and sweeps](https://github.com/hashtagRR/IDSLab/blob/main/docs/compare-and-sweeps.md) | two designs on the same flows, paired per seed; one base config with many variants |
+| [Command line](https://github.com/hashtagRR/IDSLab/blob/main/docs/cli.md) | `validate`, `run`, `report`, `export-splits`, `example`, `compare`, `sweep`, `dashboard` |
 | [Dashboard](https://github.com/hashtagRR/IDSLab/blob/main/docs/dashboard.md) | the local web UI: pages, jobs, security ([source reference](https://github.com/hashtagRR/IDSLab/blob/main/src/idslab/dashboard/README.md)) |
 | [Architecture](https://github.com/hashtagRR/IDSLab/blob/main/docs/architecture.md) | what happens during a run, the modules, and where to extend |
 | [Known limitations](https://github.com/hashtagRR/IDSLab/blob/main/docs/limitations.md) | what the numbers do and do not show |
@@ -172,7 +173,10 @@ Step-by-step Windows setup, optional model libraries and troubleshooting:
 
 ## Versions
 
-- **`v0.1.0`** (latest): first public release. Any acyclic cascade of classifier, type and
+- **`v0.2.0`** (latest): visual pipeline builder; cost objectives and stage cost; `greedy_fixed`
+  selection; plugins; `idslab compare` with paired per-seed differences and `idslab sweep`; fixes for
+  chained score dependencies and external-score freshness. Runs from 0.1.0 rerun.
+- **`v0.1.0`**: first public release. Any acyclic cascade of classifier, type and
   detector stages; greedy selection on VAL with an off option; first-stage controls, frontier gap
   and paired bootstrap; held-out family and natural novelty modes; external scores with provenance
   checks; Markdown, JSON and HTML reports; the web dashboard.

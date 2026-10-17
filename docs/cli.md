@@ -50,6 +50,28 @@ Writes the rows of every split per run unit, for models trained outside IDSLab
 Writes the synthetic dataset to `DIRECTORY/data` and the three reference configs to `DIRECTORY`.
 `--overwrite` replaces files that exist.
 
+## idslab compare EXPERIMENT EXPERIMENT ...
+
+| Option        | Default                  | Meaning                                          |
+|---------------|--------------------------|--------------------------------------------------|
+| `--out`       | `comparisons/<names>`    | folder for `compare.md`, `.json` and `.html`     |
+| `--bootstrap` | `1000`                   | paired bootstrap replicates                      |
+
+Compares finished experiments (`<out>/<name>` folders); the first is the baseline. See
+[Comparing designs and sweeps](compare-and-sweeps.md).
+
+## idslab sweep SWEEP_FILE
+
+| Option        | Default | Meaning                                                  |
+|---------------|---------|----------------------------------------------------------|
+| `--out`       | `runs`  | output root for the variants and the comparison          |
+| `--seeds`, `--jobs`, `--force` |  | as for `run`                                   |
+| `--bootstrap` | `1000`  | paired bootstrap replicates for the comparison           |
+| `--dry-run`   |         | check the sweep and list its variants, run nothing       |
+
+Runs every variant of a base config and compares them. See
+[Comparing designs and sweeps](compare-and-sweeps.md).
+
 ## idslab dashboard
 
 Starts the web dashboard; see [Dashboard](dashboard.md).

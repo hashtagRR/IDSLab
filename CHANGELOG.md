@@ -3,25 +3,19 @@
 Every version that can change results gets a new number: finished run units are reused only while
 the config, data and IDSLab version fingerprints match.
 
-## Unreleased
+## 0.2.0 (2026-10-17)
 
-Fixed (these change which finished units are reused, so the next release gets a new version):
+Finished run units from 0.1.0 are not reused: the version is part of every unit's fingerprint, and the
+fixes below change what a fingerprint covers.
 
-- Chained score dependencies (a stage that feeds another stage while using a third stage's scores)
-  are refused at config load. Their out-of-fold scores were not fully out of fold: the inner stage's
-  fold refits used features from models that had seen the held-out fold.
-- External score sidecars (`.json`) are part of the unit fingerprint, so editing a sidecar reruns the
-  unit and its provenance is checked again; before, the finished unit was skipped.
-- Reports check each unit's external score files against the current ones and leave out units whose
-  files changed, naming the reason; before, stale results from replaced files stayed in the report.
+Added:
 
-- Install guide rewritten as three step-by-step guides (Windows, macOS, GNU/Linux) from the download
-  (ZIP or Git) to the dashboard, each with its own troubleshooting table; a one-line install from
-  GitHub (`pip install git+https://github.com/hashtagRR/IDSLab.git`) replaces the PyPI command until
-  IDSLab is published there.
-- Dashboard on Windows: Stop ends the job's worker processes too, and a path on another drive or
-  with a colon is refused with a message instead of an error.
-- Project site (`docs/index.html`, served by GitHub Pages from `docs/`).
+- Visual pipeline builder in the dashboard: drag stages onto a canvas, wire outputs to stages or
+  terminals, drag score edges for features, and edit every stage setting in a panel (models from a
+  catalog with parameter forms, search spaces, pipeline steps, decisions, training rows). A dataset
+  panel reads a sample of the data and suggests the label, type and categorical columns. The config is
+  written with the loader's rules and validated on every change; node positions are saved next to the
+  config (`idslab.config.dump_yaml` writes configs that read back unchanged).
 - Cost objectives: `protocol.objective: {cost: {missed_attack: A, false_alarm: B}}` chooses on VAL by
   the lowest average cost per flow; `{recall_at_fpr: X}` by the highest recall within a false alarm
   cap. The objective appears as its own column in every report.
@@ -32,18 +26,34 @@ Fixed (these change which finished units are reused, so the next release gets a 
   judged. On the synthetic R2 example it raised VAL and TEST accuracy in each of 3 seeds.
 - Plugins through the entry point group `idslab.plugins`: models and pipeline steps for the builder
   catalog, and named objectives.
-- The builder offers these settings (objective, search, declared cost).
-- Visual pipeline builder in the dashboard: drag stages onto a canvas, wire outputs to stages or
-  terminals, drag score edges for features, and edit every stage setting in a panel (models from a
-  catalog with parameter forms, search spaces, pipeline steps, decisions, training rows). A dataset
-  panel reads a sample of the data and suggests the label, type and categorical columns. The config is
-  written by the server with the loader's rules and validated on every change; node positions are
-  saved next to the config.
-- `idslab.config.dump_yaml` writes a config in the shape people write by hand and reads back unchanged.
-- Documentation reorganised: a short README with an overview figure and a table of guides,
-  `INSTALL.md`, `docs/architecture.md`, `docs/limitations.md`, and mini READMEs for the example designs
-  and the dashboard source. Figures (overview, splits, selection, frontier gap, the three reference
-  designs) are drawn by `docs/img/make_figures.py`; dashboard and report screenshots added.
+- `idslab compare`: experiments side by side, and for experiments on the same data and splits a
+  paired comparison per unit on the same TEST flows, with paired bootstrap intervals. Writes
+  `compare.md`, `compare.json` and `compare.html`.
+- `idslab sweep`: one base config with named variants or a grid of dotted-key changes; every variant
+  is checked first, written as its own config, run, reported and compared.
+- Dashboard: Compare and Sweeps pages; compare and sweep run as dashboard jobs.
+
+Fixed:
+
+- Chained score dependencies (a stage that feeds another stage while using a third stage's scores)
+  are refused at config load. Their out-of-fold scores were not fully out of fold: the inner stage's
+  fold refits used features from models that had seen the held-out fold.
+- External score sidecars (`.json`) are part of the unit fingerprint, so editing a sidecar reruns the
+  unit and its provenance is checked again; before, the finished unit was skipped.
+- Reports check each unit's external score files against the current ones and leave out units whose
+  files changed, naming the reason; before, stale results from replaced files stayed in the report.
+- Dashboard on Windows: Stop ends the job's worker processes too, and a path on another drive or with
+  a colon is refused with a message instead of an error.
+
+Documentation:
+
+- A short README with an overview figure and a table of guides; `INSTALL.md` with step-by-step guides
+  for Windows, macOS and GNU/Linux from the download to the dashboard; `docs/architecture.md`,
+  `docs/limitations.md`, `docs/compare-and-sweeps.md`; mini READMEs for the example designs and the
+  dashboard source. Figures are drawn by `docs/img/make_figures.py` from a real run.
+- A project site (`docs/index.html`, served by GitHub Pages from `docs/`).
+- IDSLab is not on PyPI yet; the guides install it from GitHub
+  (`pip install git+https://github.com/hashtagRR/IDSLab.git`).
 
 ## 0.1.0 (2026-10-16)
 

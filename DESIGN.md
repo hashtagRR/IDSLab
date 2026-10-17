@@ -492,13 +492,24 @@ server and static files; it adds no dependencies.
 - **Dataset inspector.** Reads a sample of a data file (never the whole file) and suggests the label,
   the type column and its normal value, and the categorical columns for `idslab.prep.Encode`.
 
-## 15. Open work
+## 15. Comparison and sweeps
 
-- **Comparison.** Experiments on the same data side by side (systems, controls, frozen cascades, stage
-  effects), from the command line and in the dashboard, with a warning when the data fingerprints
-  differ.
-- **Sweeps.** A base config plus named variants or a grid over config keys, each run as its own
-  experiment and summarised in one comparison.
+- **Comparison** (`idslab compare`, the dashboard's Compare page) reads each experiment's report and
+  the units the report included. Headline figures come from the reports. For experiments that ran on
+  the same data with the same splits (equal data and split fingerprints per unit), the units are also
+  paired: on the same TEST flows, the paired bootstrap (section 6) gives each unit's difference of the
+  cascade objective against the first experiment, the baseline. Units that differ in data, splits or
+  TEST rows are listed as skipped, not compared. Different objectives, modes or data files raise a
+  warning; only experiments with the baseline's objective are paired.
+- **Sweeps** (`idslab sweep`, the dashboard's Sweeps page) take a base config and either named
+  variants, each a set of dotted-key changes, or a grid, the product of listed values. Every variant is
+  built and validated before anything runs, written as a config of its own (relative data and score
+  paths rewritten so they still point to the same files), run and reported like `idslab run`, and the
+  experiments are compared with the first variant as the baseline. Variant configs are ordinary
+  configs, so each can be rerun or edited on its own.
+
+## 16. Open work
+
 - **Speed and memory.** The frontier interval rebuilds the convex hull per bootstrap replicate in
   Python; a vectorised hull would cut the time on large TEST sets. Parallel seeds send the whole data
   table to each worker; loading it once per worker would save memory.

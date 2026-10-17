@@ -25,6 +25,7 @@ idslab dashboard --workspace demo            # http://127.0.0.1:8765/
 | `static/core.js` | helpers: `el()` (DOM from `textContent`, never `innerHTML`), `api()`, formatting, tables, the shared job poller |
 | `static/app.js` | the hash router (`#/`, `#/configs`, `#/config/<path>`, `#/builder/<path>`, `#/new`, `#/runs`, `#/run/<path>/<tab>`, `#/unit/<path>`, `#/job`, `#/command/<cmd>`, `#/example`, `#/files/<path>`), theme and footer |
 | `static/editor.js` | configs list, new config, the YAML editor with validation as you type, and the command forms |
+| `static/compare.js` | the Compare page (pick experiments, paired comparison) and the Sweeps pages (list, new sweep, editor with live check and run panel) |
 | `static/builder.js` | the visual builder: canvas, ports and wires, node moves, the stage, dataset, protocol and controls panels; edits the config as data and lets the server write the YAML |
 | `static/views.js` | overview, runs, one run, one unit, the job log, example data, the file browser |
 | `static/charts.js` | SVG charts: grouped bars with error bars, and the cascade map drawn from parsed routes |
@@ -49,6 +50,7 @@ files needs a restart.
 | GET | `/api/catalog` | models per stage kind and pipeline steps, with parameter forms |
 | GET | `/api/datafiles` | Parquet and CSV files in the workspace, outside run outputs |
 | GET | `/api/dataset?path=` | columns of a data file from a sample, with suggested label, type, normal value and categorical columns |
+| GET | `/api/sweeps` | sweep files in the workspace |
 | GET | `/api/layout?path=` | saved node positions of a config |
 | GET | `/api/job[?tail=N]` | the job: state, command, target, timings, log |
 | GET | `/files/<path>[?download=1]` | a workspace file: report pages as HTML under a no-script policy, text as plain text, anything else as a download |
@@ -56,6 +58,8 @@ files needs a restart.
 | POST | `/api/config/save` | `{path, yaml, overwrite}`: writes a `.yaml` or `.yml` file, then validates it |
 | POST | `/api/parse` | `{yaml}`: the config as data, for the builder |
 | POST | `/api/dump` | `{config, path}`: the config written as YAML (the CLI's rules), then validated |
+| POST | `/api/compare` | `{experiments, bootstrap}`: the comparison of finished experiments, computed in process |
+| POST | `/api/sweep/check` | `{yaml, path}`: checks a sweep; returns its variants and the base config's dotted keys |
 | POST | `/api/layout` | `{path, positions}`: writes `<config>.layout.json` |
 | POST | `/api/job` | `{command, config, out, seeds, jobs, force, no_report, debug}` or `{command: example, directory, overwrite}`: starts a CLI job |
 | POST | `/api/job/stop` | stops the running job |

@@ -99,7 +99,7 @@ check:
 .\.venv\Scripts\idslab --version
 ```
 
-It prints `idslab 0.1.0` (or a newer number).
+It prints `idslab 0.2.0` (or a newer number).
 
 ### 6. A first run
 
@@ -239,7 +239,7 @@ python3.12 -m venv .venv
 .venv/bin/idslab --version
 ```
 
-The last line prints `idslab 0.1.0` (or a newer number).
+The last line prints `idslab 0.2.0` (or a newer number).
 
 ### 6. A first run
 

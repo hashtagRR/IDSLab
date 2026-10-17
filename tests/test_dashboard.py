@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Copyright (C) 2026 hashtagRR
+import copy
 import http.client
 import json
 import os
@@ -12,7 +13,7 @@ from typing import Any
 import pytest
 import yaml
 
-from idslab.config import load
+from idslab.config import from_dict, load
 from idslab.dashboard.jobs import JobError, build_command
 from idslab.dashboard.server import STATIC, App, make_server
 from idslab.dashboard.workspace import PathError, Workspace
@@ -165,7 +166,7 @@ def test_api_reads(server):
     srv, _ = server
     status, meta, _ = request(srv, "GET", "/api/meta")
     assert status == 200
-    assert meta["commands"] == ["run", "report", "export-splits", "example"]
+    assert meta["commands"] == ["run", "report", "export-splits", "example", "compare", "sweep"]
     status, runs, _ = request(srv, "GET", "/api/runs")
     assert [r["path"] for r in runs] == ["runs/r2"]
     status, cfg, _ = request(srv, "GET", "/api/config?path=r2.yaml")
@@ -308,3 +309,52 @@ def test_builder_endpoints(server, ws_dir, r2):
     assert layout == {"positions": {"screen": [10.0, 20.0]}}
     status, _, _ = request(srv, "POST", "/api/layout", {"path": "notes.txt", "positions": {}})
     assert status == 400
+
+
+# ---------- compare and sweeps ----------
+
+
+def test_compare_and_sweep_jobs_and_endpoints(server, ws_dir, r2):
+    srv, _ = server
+    (ws_dir / "sweeps").mkdir()
+    spec = {"name": "two", "base": "../r2.yaml", "variants": {"a": {}, "b": {"protocol.objective": "mcc"}}}
+    (ws_dir / "sweeps" / "two.yaml").write_text(yaml.safe_dump(spec))
+    _, sweeps, _ = request(srv, "GET", "/api/sweeps")
+    assert [s["path"] for s in sweeps] == ["sweeps/two.yaml"]
+    text = (ws_dir / "sweeps" / "two.yaml").read_text()
+    _, check, _ = request(srv, "POST", "/api/sweep/check", {"yaml": text, "path": "sweeps/two.yaml"})
+    assert check["ok"]
+    assert [v["name"] for v in check["variants"]] == ["a", "b"]
+    assert "stages.screen.decision" in check["keys"]
+    _, bad, _ = request(
+        srv,
+        "POST",
+        "/api/sweep/check",
+        {"yaml": text.replace("../r2.yaml", "nope.yaml"), "path": "sweeps/two.yaml"},
+    )
+    assert not bad["ok"]
+
+    ws = Workspace(str(ws_dir))
+    argv, info = build_command(
+        ws, {"command": "sweep", "sweep": "sweeps/two.yaml", "seeds": "0", "bootstrap": 50}
+    )
+    assert argv[:4] == ["sweep", "sweeps/two.yaml", "--out", "runs"]
+    assert info["target"] == "runs/two/comparison"
+    with pytest.raises(JobError, match="at least two"):
+        build_command(ws, {"command": "compare", "experiments": ["runs/r2"]})
+
+    # a second experiment on the same data and splits, then the in-process comparison
+    cfg_raw = copy.deepcopy(r2)
+    cfg_raw["name"] = "r2-b"
+    cfg_raw["dataset"]["train"] = "data/train.parquet"
+    cfg_raw["dataset"]["test"] = "data/test.parquet"
+    cfg = from_dict(cfg_raw, base_dir=str(ws_dir))
+    run(cfg, out_root=str(ws_dir / "runs"))
+    write_report(str(ws_dir / "runs"), cfg)
+    status, c, _ = request(
+        srv, "POST", "/api/compare", {"experiments": ["runs/r2", "runs/r2-b"], "bootstrap": 20}
+    )
+    assert status == 200
+    assert [h["path"] for h in c["experiments"]] == ["runs/r2", "runs/r2-b"]
+    [pair] = c["paired"]
+    assert pair["per_unit"][0]["diff"] == pytest.approx(0.0)  # the same design on the same flows
