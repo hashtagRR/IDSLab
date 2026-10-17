@@ -162,8 +162,10 @@ function rebuildButton(e, o) {
   const b = el("button", {class: "btn small", type: "button", text: o.has_report ? "Rebuild" : "Build"});
   const refresh = () => {
     const busy = job.snapshot?.state === "running";
-    b.disabled = busy || e.state === "invalid";
-    b.title = busy ? "Another job is running" : e.state === "invalid" ? "The config has problems; fix it in Setup" : "";
+    const none = o.reportable_units === 0;  // no finished unit of this config and version
+    b.disabled = busy || e.state === "invalid" || none;
+    b.title = busy ? "Another job is running" : e.state === "invalid" ? "The config has problems; fix it in Setup"
+      : none ? "No finished units of this config and IDSLab version: run the experiment again first" : "";
   };
   b.addEventListener("click", async () => {
     try { await startJob({command: "report", config: e.config, out: o.path.split("/").slice(0, -1).join("/") || "."}); } catch (err) { toast(err.message); }

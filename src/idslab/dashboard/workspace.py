@@ -16,6 +16,7 @@ import re
 import stat
 from typing import Any
 
+from idslab import __version__
 from idslab.config import MODES, Config, ConfigError, from_dict, parse_yaml
 
 SKIP_DIRS = {"__pycache__", "node_modules", "venv", "site-packages"}
@@ -160,8 +161,9 @@ class Workspace:
 
     # ---------- runs ----------
 
-    def experiments(self) -> list[dict]:
-        """Run outputs: folders holding ``<mode>/seed_<s>``, found anywhere in the workspace."""
+    def experiments(self, *, keep_keys: bool = False) -> list[dict]:
+        """Run outputs: folders holding ``<mode>/seed_<s>``, found anywhere in the workspace.
+        ``keep_keys`` keeps the per-unit fingerprint keys experiment_index needs."""
         found = []
         for d, dirs, _ in self._walk():
             if _is_mode_dir(d, dirs):
@@ -172,6 +174,9 @@ class Workspace:
                     if len(found) >= MAX_ITEMS:
                         break
         out = [self._experiment_row(e) for e in found]
+        if not keep_keys:
+            for r in out:
+                r.pop("_done_keys")
         return sorted(out, key=lambda r: r["updated"] or 0, reverse=True)
 
     def _experiment_row(self, exp: str) -> dict:
@@ -207,6 +212,7 @@ class Workspace:
         done_mtimes = [u["done_mtime"] for u in units if u["done_mtime"] is not None]
         in_report = len(report.get("units") or []) if isinstance(report, dict) else 0
         n_done = sum(u["done"] for u in units)
+        versions = {u["version"] or "unknown" for u in units if u["done"]}
         return {
             "path": self.rel(exp),
             "name": os.path.basename(exp),
@@ -226,6 +232,20 @@ class Workspace:
                 and (in_report < n_done or any(t > report_mtime + 1 for t in done_mtimes))
             ),
             "config_fingerprints": sorted({u["config_fp"] for u in units if u["config_fp"]}),
+            # IDSLab versions that wrote the finished units; units of another version are not reused,
+            # and a report counts only units of the running version
+            "versions": sorted(versions),
+            # finished units an earlier IDSLab wrote ("unknown" when DONE does not say): not reused,
+            # and never counted by a report built with this version
+            "other_version": sorted(versions - {__version__}),
+            "reportable_units": None,  # set per config by experiment_index (needs the config)
+            # every finished unit's other versions: the experiment needs a new run before any report
+            "only_other_version": bool(versions) and __version__ not in versions,
+            "_done_keys": [
+                (u["mode"], u["version"], u["config_fp"], u["seed"], u["has_summary"])
+                for u in units
+                if u["done"]
+            ],
         }
 
     def experiment(self, rel: str) -> dict:
@@ -234,6 +254,7 @@ class Workspace:
         if not units:
             raise PathError(f"{rel}: no run output here")
         row = self._experiment_row(exp)
+        row.pop("_done_keys")
         report = _read_json(os.path.join(exp, "report.json"))
         configs = [c for c in self.configs() if c.get("name") == row["name"]]
         return {
@@ -308,7 +329,7 @@ class Workspace:
         name, the config fingerprints recorded by the output's finished units must match exactly
         one of them; otherwise the output is listed on its own with the reason, never guessed."""
         configs = [self.config_record(c["path"]) for c in self.configs()]
-        outputs = self.experiments()
+        outputs = self.experiments(keep_keys=True)
         by_name: dict[str, list[dict]] = {}
         for c in configs:
             by_name.setdefault(c.get("name") or "", []).append(c)
@@ -359,6 +380,23 @@ class Workspace:
             )
         out += alone
         for e in out:
+            rec = e["record"]
+            for o in e["outputs"]:
+                # the units a report built now would count: a summary, this config and its mode and
+                # seeds, this version (the data fingerprint is left to the report: hashing is too slow)
+                o["reportable_units"] = (
+                    sum(
+                        1
+                        for mode, version, cfp, seed, has_summary in o["_done_keys"]
+                        if has_summary
+                        and mode == rec.get("mode")
+                        and version == __version__
+                        and cfp == rec["fingerprint"]
+                        and seed in rec.get("seeds", ())
+                    )
+                    if rec and rec.get("valid")
+                    else None
+                )
             e["updated"] = max(
                 [*(o["updated"] or 0 for o in e["outputs"]), (e["record"] or {}).get("mtime") or 0]
             )
@@ -370,6 +408,9 @@ class Workspace:
                 and e["record"]["fingerprint"] not in e["outputs"][0]["config_fingerprints"]
                 and e["outputs"][0]["config_fingerprints"]
             )
+        for e in out:
+            for o in e["outputs"]:
+                o.pop("_done_keys", None)
         return sorted(out, key=lambda e: e["updated"], reverse=True)
 
     def history(self, limit: int = 200) -> list[dict]:
@@ -537,6 +578,8 @@ def _state(e: dict) -> str:
         return "invalid"
     if outs:
         o = outs[0]
+        if o["units_done"] and o["only_other_version"]:
+            return "outdated"  # every finished unit is from another IDSLab version: a run redoes them
         return "completed" if o["has_report"] and o["units_done"] == o["units_total"] else "partial"
     if rec is not None and any(not d["exists"] for d in rec["data"]):
         return "needs_data"
@@ -563,6 +606,7 @@ def _units(exp: str):
 
 def _unit_row(d: str, mode: str, seed: int, family: str | None) -> dict:
     done = _read_json(os.path.join(d, "DONE"))
+    fps = (done.get("fingerprints") or {}) if isinstance(done, dict) else {}
     summary_path = os.path.join(d, "summary.json")
     row = {
         "dir": d,
@@ -572,8 +616,10 @@ def _unit_row(d: str, mode: str, seed: int, family: str | None) -> dict:
         "done": isinstance(done, dict),
         "finished": done.get("finished") if isinstance(done, dict) else None,
         "done_mtime": os.path.getmtime(os.path.join(d, "DONE")) if isinstance(done, dict) else None,
-        "config_fp": ((done.get("fingerprints") or {}).get("config") if isinstance(done, dict) else None),
+        "config_fp": fps.get("config"),
+        "version": fps.get("package_version"),
         "mtime": os.path.getmtime(d),
+        "has_summary": False,
         "runtime_seconds": None,
         "objective": None,
         "cascade": None,
@@ -581,6 +627,7 @@ def _unit_row(d: str, mode: str, seed: int, family: str | None) -> dict:
     }
     summary = _read_json(summary_path) if os.path.exists(summary_path) else None
     if isinstance(summary, dict):
+        row["has_summary"] = True
         ctl = summary.get("controls") or {}
         goal = ctl.get("objective")
         st = ctl.get("systems_test") or {}

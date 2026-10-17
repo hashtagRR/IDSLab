@@ -536,3 +536,9 @@ server and static files; it adds no dependencies.
 - **One budget helper.** Two budget rules exist on purpose: a budget stage flags about b of the benign
   VAL rows reaching it (a quantile), and the budget-matched control takes the highest threshold whose
   VAL false alarm rate is at least the target. A shared helper could hold both.
+- **One rule for reportable units.** The dashboard counts the units a report would use (summary,
+  config, mode, seeds, version) with its own copy of the rule in `report.load_summaries`, without the
+  data and score-file fingerprints, which are too slow to hash on every page. One shared helper, with
+  the hashing optional, would keep the two from drifting. `Workspace._experiment_row` would then
+  return the per-unit keys alongside the row instead of a private field removed later, and the
+  experiment page could reuse the index row rather than reading the chosen output twice.

@@ -55,6 +55,7 @@ export function nextActions(e) {
       return [[label, expHref(k, "setup", step), true]];
     }
     case "running": return [["View progress", "#/jobs", true]];
+    case "outdated": return [["Run again", expHref(k, "setup", "review"), true], ["View results", expHref(k, "results")]];
     case "partial": return [["View runs", expHref(k, "runs"), true], ...(e.outputs[0]?.has_report ? [["View report", expHref(k, "report")]] : [])];
     case "completed": return [["View results", expHref(k, "results"), true], ["View report", expHref(k, "report")]];
     default: return [["Open", expHref(k), true]];
@@ -110,7 +111,8 @@ function expRow(e) {
   return el("article", {class: "exp-row", role: "listitem"},
     el("div", {class: "exp-main"},
       el("div", {class: "row"}, el("a", {class: "exp-name", href: expHref(e.key), text: e.name || "(no name)"}),
-        expBadge(e.state), e.kind === "output" ? badge("No config", "amber") : null, e.changed_since_run ? badge("Config changed since the run", "amber") : null),
+        expBadge(e.state), e.kind === "output" ? badge("No config", "amber") : null, e.changed_since_run ? badge("Config changed since the run", "amber") : null,
+        e.outputs.some((x) => x.other_version?.length) ? badge("Results from another IDSLab version", "amber") : null),
       el("div", {class: "muted small mono wrap", text: where}),
       el("div", {class: "small", text: [units, o?.has_report ? `report ${ago(o.report_mtime)}` : null, e.outputs.length > 1 ? `${e.outputs.length} output folders` : null]
         .filter(Boolean).join("; ")}),
@@ -309,7 +311,21 @@ export async function experimentView(view, meta, key, tab, sub, setCrumbs) {
   if (info?.kind === "output") {
     view.append(note(`Read only: ${info.reason}. Setup, runs and report rebuilds need a config with this name` +
       (info.candidates.length ? "; give one of those configs a different name, or keep only the one that wrote these results." : "."), "warn"));
-  } else if (info?.changed_since_run) {
+  }
+  const o = info?.output;
+  if (o?.other_version?.length) {
+    const vers = o.other_version.map((v) => (v === "unknown" ? "a version that did not record itself" : v)).join(", ");
+    let text = `Some or all of these results were written by IDSLab ${vers}; this is ${meta.version}. They stay readable.`;
+    if (info.kind === "config" && info.state === "invalid") {
+      text += " Fix the config in Setup first; a run then computes them again with this version.";
+    } else if (info.kind === "config") {
+      text += o.reportable_units
+        ? ` A report built now counts only the ${o.reportable_units} unit${o.reportable_units === 1 ? "" : "s"} of this version; a run computes the others again.`
+        : " A run computes them again (the version is part of every unit's fingerprint), and the report can be rebuilt after that run.";
+    }
+    view.append(note(text, "warn"));
+  }
+  if (info?.kind !== "output" && info?.changed_since_run) {
     view.append(note("The config has changed since these results were written. They show the earlier settings; run again to update them.", "warn"));
   }
   const clash = info?.config && (await sameName(info));

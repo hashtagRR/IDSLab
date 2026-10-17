@@ -29,18 +29,21 @@ function notRun(box, ctx) {
 }
 
 // the reason a command cannot start from this page, or null
-function blocked(ctx, what) {
+function blocked(ctx, what, report) {
   const {info} = ctx;
   if (info.kind === "output") return `${what} needs a config: ${info.reason}.`;
   if (info.validation && !info.validation.ok) return `${what} needs a config that loads; ${info.config} has problems (see Setup).`;
+  if (report && info.output?.reportable_units === 0) {
+    return `${what} needs finished units of this config and this IDSLab version, and there are none yet. Run the experiment first.`;
+  }
   if (job.snapshot?.state === "running") return "Another job is running; one job runs at a time.";
   return null;
 }
-function commandButton(ctx, label, what, body, {primary = false} = {}) {
+function commandButton(ctx, label, what, body, {primary = false, report = false} = {}) {
   const btn = el("button", {class: `btn${primary ? " primary" : ""}`, type: "button", text: label});
   const why = el("span", {class: "muted small"});
   const refresh = () => {
-    const r = blocked(ctx, what);
+    const r = blocked(ctx, what, report);
     btn.disabled = Boolean(r);
     why.textContent = r || "";
   };
@@ -108,7 +111,7 @@ export async function resultsTab(box, ctx) {
     box.append(card("No report yet", null, cardBody(el("div", {class: "stack"},
       el("p", {text: o.units_done ? `${o.units_done} unit${o.units_done === 1 ? "" : "s"} finished. The results page reads the report, which has not been built.`
         : "No unit has finished yet."}),
-      o.units_done ? commandButton(ctx, "Build the report", "Building the report", () => ({command: "report", config: info.config, out: o.out_root}), {primary: true}) : null))));
+      o.units_done ? commandButton(ctx, "Build the report", "Building the report", () => ({command: "report", config: info.config, out: o.out_root}), {primary: true, report: true}) : null))));
     return;
   }
   const goal = rep.objective, f = objective(goal);
@@ -127,7 +130,7 @@ export async function resultsTab(box, ctx) {
   };
   if (o.report_behind) {
     box.append(el("div", {class: "note warn row"}, el("span", {text: "Some finished units are newer than the report, so these figures may be out of date."}),
-      el("span", {class: "spacer"}), commandButton(ctx, "Rebuild the report", "Rebuilding the report", () => ({command: "report", config: info.config, out: o.out_root}))));
+      el("span", {class: "spacer"}), commandButton(ctx, "Rebuild the report", "Rebuilding the report", () => ({command: "report", config: info.config, out: o.out_root}), {report: true})));
   }
 
   // summary
@@ -235,7 +238,7 @@ export async function reportTab(box, ctx) {
   const o = info.output;
   if (!o) { notRun(box, ctx); return; }
   const rebuild = commandButton(ctx, o.has_report ? "Rebuild report" : "Build the report", "Building the report",
-    () => ({command: "report", config: info.config, out: o.out_root}), {primary: !o.has_report});
+    () => ({command: "report", config: info.config, out: o.out_root}), {primary: !o.has_report, report: true});
   if (!o.has_report) {
     box.append(card("No report yet", null, cardBody(el("div", {class: "stack"},
       el("p", {text: o.units_done ? `${o.units_done} of ${o.units_total} units finished. The report aggregates finished units into report.md, report.json and report.html.`

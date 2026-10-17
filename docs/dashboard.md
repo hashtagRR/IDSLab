@@ -40,6 +40,7 @@ The home page lists every experiment with its state and the next thing to do:
 | Running        | View progress                     |
 | Unfinished     | View runs                         |
 | Completed      | View results, View report         |
+| Needs a new run | Run again, View results (every finished unit is from another IDSLab version) |
 
 **New experiment** starts from one of the three reference designs, from a YAML file already in the
 workspace (or pasted), or from a blank design. **Use this configuration** on a template saves a copy
@@ -148,6 +149,10 @@ Units of measure:
 The sd columns are the spread over units. In the standard protocol that is the spread over seeds.
 With held-out families it mixes seeds and families, and the Unseen attacks section breaks results
 down by family. The bootstrap counts are per unit, and no interval is pooled across units.
+
+Results written by another IDSLab version stay readable, with a note. The version is part of every
+unit's fingerprint, so a run computes those units again, and Rebuild report needs that run first: a
+report counts only units of the running version.
 
 The frozen cascade on the Report page is drawn from the routes the unit stored. Units written by
 IDSLab 0.2.0 or earlier did not store them. For those, the current config is used only when its

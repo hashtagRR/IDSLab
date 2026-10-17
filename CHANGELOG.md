@@ -3,9 +3,13 @@
 Every version that can change results gets a new number: finished run units are reused only while
 the config, data and IDSLab version fingerprints match.
 
-## Unreleased
+## 0.3.0 (2026-10-17)
 
-Results do not change: finished units from 0.2.0 are reused.
+The evaluation is unchanged: the same config and data give the same per-flow predictions, frozen
+configurations and controls as in 0.2.0. The version is part of every unit's fingerprint, so finished
+0.2.0 units are not reused: run each experiment once under 0.3.0 before `idslab report` can rebuild
+its report (a report counts only units of the running version). The dashboard marks results written
+by another version and says so before a rebuild.
 
 Added:
 

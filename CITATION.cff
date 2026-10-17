@@ -4,7 +4,7 @@ title: "IDSLab: an evaluation framework for staged intrusion detection systems"
 type: software
 authors:
   - alias: hashtagRR
-version: 0.2.0
+version: 0.3.0
 date-released: "2026-10-17"
 license: AGPL-3.0-or-later
 repository-code: "https://github.com/hashtagRR/IDSLab"

@@ -236,6 +236,7 @@ export const metricLabel = (k) => METRIC[k] || (String(k).startsWith("cost(") ? 
 export const STATE = {
   draft: ["", "Draft"], needs_data: ["amber", "Data missing"], invalid: ["red", "Needs fixing"],
   running: ["blue", "Running"], partial: ["amber", "Unfinished"], completed: ["green", "Completed"],
+  outdated: ["amber", "Needs a new run"],
 };
 export function expBadge(state) {
   const [cls, label] = STATE[state] || ["", state];

@@ -57,7 +57,7 @@ stage, so any selection choice can be recomputed.
 
 ```json
 {"fingerprints": {"config": "...", "data": {"train": "...", "test": "..."}, "split": "...",
-                  "package_version": "0.2.0", "family": null, "external": {}},
+                  "package_version": "0.3.0", "family": null, "external": {}},
  "finished": "2026-10-16T09:37:40+00:00"}
 ```
 

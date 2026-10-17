@@ -173,7 +173,12 @@ Step-by-step Windows setup, optional model libraries and troubleshooting:
 
 ## Versions
 
-- **`v0.2.0`** (latest): visual pipeline builder; cost objectives and stage cost; `greedy_fixed`
+- **`v0.3.0`** (latest): the dashboard redesigned around experiments: a guided setup (data, cascade,
+  evaluation, review and run) sharing one draft with the YAML view, templates, datasets, jobs with
+  real progress, a results page that reads the cascade against the first stage with the per-unit
+  bootstrap, and reports. Clear messages for a missing workspace folder. Results are unchanged;
+  runs from 0.2.0 rerun once.
+- **`v0.2.0`**: visual pipeline builder; cost objectives and stage cost; `greedy_fixed`
   selection; plugins; `idslab compare` with paired per-seed differences and `idslab sweep`; fixes for
   chained score dependencies and external-score freshness. Runs from 0.1.0 rerun.
 - **`v0.1.0`**: first public release. Any acyclic cascade of classifier, type and

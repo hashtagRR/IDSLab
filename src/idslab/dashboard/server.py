@@ -119,6 +119,9 @@ class App:
         paths = [o["path"] for o in e["outputs"]]
         chosen = output or (out if out in paths else (paths[0] if paths else None))
         detail = self.ws.experiment(chosen) if chosen else None
+        if detail is not None:  # what only the index knows: the units a report would count
+            row = next(o for o in e["outputs"] if o["path"] == chosen)
+            detail["reportable_units"] = row["reportable_units"]
         validation = None
         if e["config"]:
             validation = self.validate(self.ws.config_text(e["config"]), e["config"])
