@@ -351,7 +351,7 @@ def test_four_layer_design_loads():
         ),
     ],
 )
-def test_phase2_rules(change, message):
+def test_feature_and_pool_rules(change, message):
     raw = four_layer()
     change(raw)
     assert message in errors(raw)
