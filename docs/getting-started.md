@@ -4,13 +4,20 @@ This page takes you from installation to a first report in about five minutes on
 
 ## Install
 
+[INSTALL.md](../INSTALL.md) walks through the install on [Windows](../INSTALL.md#windows),
+[macOS](../INSTALL.md#macos) and [GNU/Linux](../INSTALL.md#gnulinux), from the download to the
+dashboard. In short, inside a virtual environment:
+
 ```bash
-pip install idslab            # or, from a clone: pip install -e .
+pip install "git+https://github.com/hashtagRR/IDSLab.git"
 ```
 
-Optional model libraries and platform notes: [INSTALL.md](../INSTALL.md).
-
 ## A first run
+
+The commands below are written as `idslab ...`, which works when the virtual environment is active.
+Without activating it, call the program by its path: `.venv/bin/idslab` on Linux and macOS,
+`.\.venv\Scripts\idslab` in Windows PowerShell (the leading `.\` is required there). See
+[Windows, step by step](../INSTALL.md#windows).
 
 ```bash
 idslab example demo

@@ -50,8 +50,14 @@ class Workspace:
         parts = [p for p in rel.split("/") if p not in ("", ".")]
         if any(p.startswith(".") for p in parts):
             raise PathError(f"{rel}: hidden or parent path parts are not allowed")
+        if any(":" in p for p in parts):  # Windows drive-relative paths (C:x) and alternate data streams
+            raise PathError(f"{rel}: a colon is not allowed in a workspace path")
         path = os.path.realpath(os.path.join(self.root, *parts))
-        if os.path.commonpath([path, self.root]) != self.root:
+        try:
+            inside = os.path.commonpath([path, self.root]) == self.root
+        except ValueError:  # Windows: a path on another drive
+            inside = False
+        if not inside:
             raise PathError(f"{rel}: outside the workspace")
         if kind == "file" and not os.path.isfile(path):
             raise PathError(f"{rel or '.'}: no such file")

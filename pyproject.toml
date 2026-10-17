@@ -42,7 +42,8 @@ torch = ["torch>=2.2"]
 dev = ["pytest>=8", "pytest-cov>=5", "hypothesis>=6", "ruff>=0.6", "pyright>=1.1.380", "vulture>=2.11", "build>=1.2", "twine>=5"]
 
 [project.urls]
-Homepage = "https://github.com/hashtagRR/IDSLab"
+Homepage = "https://hashtagRR.github.io/IDSLab"
+Source = "https://github.com/hashtagRR/IDSLab"
 Documentation = "https://github.com/hashtagRR/IDSLab/tree/main/docs"
 Changelog = "https://github.com/hashtagRR/IDSLab/blob/main/CHANGELOG.md"
 Issues = "https://github.com/hashtagRR/IDSLab/issues"

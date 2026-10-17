@@ -5,6 +5,13 @@ the config, data and IDSLab version fingerprints match.
 
 ## Unreleased
 
+- Install guide rewritten as three step-by-step guides (Windows, macOS, GNU/Linux) from the download
+  (ZIP or Git) to the dashboard, each with its own troubleshooting table; a one-line install from
+  GitHub (`pip install git+https://github.com/hashtagRR/IDSLab.git`) replaces the PyPI command until
+  IDSLab is published there.
+- Dashboard on Windows: Stop ends the job's worker processes too, and a path on another drive or
+  with a colon is refused with a message instead of an error.
+- Project site (`docs/index.html`, served by GitHub Pages from `docs/`).
 - Cost objectives: `protocol.objective: {cost: {missed_attack: A, false_alarm: B}}` chooses on VAL by
   the lowest average cost per flow; `{recall_at_fpr: X}` by the highest recall within a false alarm
   cap. The objective appears as its own column in every report.

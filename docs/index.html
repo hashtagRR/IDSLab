@@ -1,0 +1,500 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Copyright (C) 2026 hashtagRR -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="description" content="IDSLab evaluates staged (cascade) intrusion detection systems under one fixed protocol and shows whether every stage earns its place against the first stage alone." />
+<meta name="theme-color" content="#06111f" />
+<meta property="og:title" content="IDSLab | Staged IDS evaluation" />
+<meta property="og:description" content="Describe a cascade IDS in one YAML file. IDSLab fits it, makes every choice on validation data, and reports it on test data next to its own first stage." />
+<meta property="og:image" content="https://hashtagRR.github.io/IDSLab/img/idslab-overview.svg" />
+<title>IDSLab | Staged IDS Evaluation</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2306111f'/%3E%3Crect x='5' y='8' width='9' height='6' rx='2' fill='%2343d7ff'/%3E%3Crect x='18' y='8' width='9' height='6' rx='2' fill='%239b75ff'/%3E%3Crect x='11.5' y='19' width='9' height='6' rx='2' fill='%2339d6a3'/%3E%3C/svg%3E" />
+<style>
+:root{
+  --bg:#06111f;--bg-2:#081827;--panel:#0b1b2e;--panel-2:#0f263f;--panel-3:#102d4b;
+  --line:#1b4266;--line-hi:#286995;--text:#f4f9ff;--muted:#a7bed4;--muted-2:#7896b1;
+  --cyan:#43d7ff;--cyan-2:#1db8ff;--blue:#4a8cff;--violet:#9b75ff;--green:#39d6a3;--amber:#ffc45e;--red:#ff6f8a;
+  --max:1240px;--radius:20px;--shadow:0 28px 90px rgba(0,0,0,.34);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.55;overflow-x:hidden}
+a{color:inherit}
+::selection{background:rgba(67,215,255,.26)}
+:focus-visible{outline:2px solid var(--cyan);outline-offset:3px;border-radius:8px}
+.wrap{width:min(var(--max),calc(100% - 44px));margin:auto;position:relative;z-index:2}
+.mono{font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace}
+.muted{color:var(--muted)}
+svg.i{width:16px;height:16px;vertical-align:-3px}
+
+/* ambient background */
+#field{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;opacity:.7}
+.glow{position:fixed;inset:0;z-index:0;pointer-events:none;background:
+ radial-gradient(760px 520px at 92% 8%,rgba(59,130,246,.16),transparent 70%),
+ radial-gradient(660px 480px at 6% 23%,rgba(67,215,255,.08),transparent 67%),
+ radial-gradient(720px 540px at 85% 76%,rgba(155,117,255,.07),transparent 70%)}
+.gridfade{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.13;background-image:linear-gradient(rgba(86,150,204,.12) 1px,transparent 1px),linear-gradient(90deg,rgba(86,150,204,.12) 1px,transparent 1px);background-size:56px 56px;mask-image:linear-gradient(to bottom,transparent 0,#000 14%,#000 80%,transparent 100%)}
+
+/* nav */
+header{position:sticky;top:0;z-index:50;background:rgba(6,17,31,.78);backdrop-filter:blur(14px);border-bottom:1px solid rgba(27,66,102,.6)}
+.nav{display:flex;align-items:center;gap:18px;height:70px}
+.logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:18px;text-decoration:none;letter-spacing:-.01em}
+.logo b{color:var(--cyan)}
+.links{display:flex;gap:4px;margin-left:auto;flex-wrap:nowrap}
+.links a{padding:8px 11px;border-radius:10px;text-decoration:none;color:var(--muted);font-size:14px;font-weight:600}
+.links a:hover,.links a.on{color:var(--text);background:rgba(67,215,255,.08)}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:12px;font-weight:700;font-size:14px;text-decoration:none;border:1px solid var(--line-hi);white-space:nowrap}
+.btn:hover{border-color:var(--cyan)}
+.btn.primary{background:linear-gradient(135deg,var(--cyan-2),var(--cyan));color:#04121f;border-color:transparent;box-shadow:0 10px 30px rgba(29,184,255,.25)}
+.menu{display:none;margin-left:auto;background:none;border:1px solid var(--line-hi);color:var(--text);border-radius:10px;padding:8px 12px;font:inherit;font-weight:700}
+
+/* hero */
+.hero{padding:92px 0 70px;display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:48px;align-items:center}
+.eyebrow{display:flex;align-items:center;gap:12px;font:700 12px/1 "SFMono-Regular",Consolas,monospace;letter-spacing:.18em;color:var(--cyan);text-transform:uppercase}
+.eyebrow:before{content:"";width:34px;height:1px;background:var(--line-hi)}
+h1{font-size:clamp(46px,7.2vw,104px);line-height:.9;letter-spacing:-.055em;margin:22px 0 26px;font-weight:900}
+.grad{background:linear-gradient(100deg,var(--cyan) 10%,var(--violet) 80%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lede{font-size:21px;font-weight:650;max-width:620px;margin:0 0 16px}
+.sub{color:var(--muted);font-size:17px;max-width:610px;margin:0 0 28px}
+.ctas{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.install{display:inline-flex;align-items:center;gap:10px;border:1px solid var(--line);background:rgba(11,27,46,.7);border-radius:12px;padding:10px 14px;font-size:14px}
+.install span{color:var(--muted-2)}
+.copy{background:none;border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:4px 8px;font:600 12px/1 inherit;cursor:pointer}
+.copy:hover{color:var(--text);border-color:var(--cyan)}
+
+/* app mock */
+.mock{border:1px solid var(--line-hi);border-radius:22px;background:linear-gradient(180deg,rgba(15,38,63,.92),rgba(8,24,39,.94));box-shadow:var(--shadow);overflow:hidden;position:relative}
+.mock-top{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line)}
+.mock-top b{font-size:15px}
+.tabs{display:flex;gap:4px;margin-left:auto}
+.tabs span{font-size:11.5px;font-weight:700;color:var(--muted-2);padding:5px 9px;border-radius:8px}
+.tabs span.on{background:rgba(67,215,255,.12);color:var(--cyan);box-shadow:inset 0 -2px 0 var(--cyan)}
+.mock-body{padding:16px;display:grid;gap:12px}
+.mbox{border:1px solid var(--line);border-radius:14px;background:rgba(6,17,31,.55);padding:14px}
+.mbox h4{margin:0 0 10px;font-size:12.5px;color:var(--muted);font-weight:700;letter-spacing:.02em}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.kpi{border:1px solid var(--line);border-radius:12px;padding:10px}
+.kpi b{display:block;font-size:22px;letter-spacing:-.02em}
+.kpi small{color:var(--muted-2);font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.vt{width:100%;border-collapse:collapse;font-size:12.5px}
+.vt td{padding:7px 4px;border-top:1px solid rgba(27,66,102,.6)}
+.vt td.n{text-align:right;font-family:"SFMono-Regular",Consolas,monospace}
+.pill{display:inline-block;font-size:10.5px;font-weight:800;padding:3px 8px;border-radius:99px;letter-spacing:.04em}
+.pill.g{color:var(--green);background:rgba(57,214,163,.12);border:1px solid rgba(57,214,163,.35)}
+.pill.r{color:var(--red);background:rgba(255,111,138,.1);border:1px solid rgba(255,111,138,.35)}
+.float{position:absolute;font:700 11px/1 "SFMono-Regular",Consolas,monospace;letter-spacing:.12em;color:var(--text);border:1px solid var(--line-hi);background:rgba(6,17,31,.9);padding:9px 12px;border-radius:10px}
+
+/* sections */
+.section{padding:96px 0;border-top:1px solid rgba(27,66,102,.45)}
+.shead{display:grid;grid-template-columns:220px minmax(0,1fr);gap:24px;margin-bottom:44px}
+.num{font:700 12px/1.6 "SFMono-Regular",Consolas,monospace;letter-spacing:.16em;color:var(--cyan);text-transform:uppercase;padding-top:14px}
+h2{font-size:clamp(36px,5vw,68px);line-height:.98;letter-spacing:-.045em;margin:0 0 20px;font-weight:900}
+.shead p{color:var(--muted);font-size:18px;max-width:760px;margin:0}
+.grid{display:grid;gap:14px}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.card{border:1px solid var(--line);border-radius:var(--radius);background:linear-gradient(180deg,rgba(11,27,46,.85),rgba(8,24,39,.85));padding:24px;position:relative}
+.card h3{margin:14px 0 8px;font-size:19px;letter-spacing:-.01em}
+.card p{margin:0;color:var(--muted);font-size:14.5px}
+.ic{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;border:1px solid var(--line-hi);background:rgba(67,215,255,.06);color:var(--cyan)}
+.ic svg{width:20px;height:20px}
+.tag{position:absolute;top:24px;right:24px;font:700 10.5px/1 "SFMono-Regular",Consolas,monospace;letter-spacing:.14em;color:var(--muted-2)}
+.bad .ic{color:var(--red);background:rgba(255,111,138,.07);border-color:rgba(255,111,138,.35)}
+
+/* steps */
+.steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;counter-reset:s}
+.step{border:1px solid var(--line);border-radius:var(--radius);padding:22px;background:rgba(11,27,46,.6)}
+.step:before{counter-increment:s;content:counter(s,decimal-leading-zero);font:800 13px/1 "SFMono-Regular",Consolas,monospace;color:var(--cyan);display:block;margin-bottom:12px}
+.step h3{margin:0 0 8px;font-size:18px}
+.step p{margin:0;color:var(--muted);font-size:14px}
+.splitbar{display:flex;gap:4px;margin:26px 0 8px;height:46px}
+.splitbar div{border-radius:10px;display:grid;place-items:center;font-weight:800;font-size:14px;color:#04121f}
+.splitlab{display:flex;gap:4px;font-size:12.5px;color:var(--muted)}
+.splitlab div{padding:0 4px}
+
+/* figures */
+.plate{border-radius:var(--radius);background:#fff;padding:14px;box-shadow:var(--shadow);border:1px solid #d0d7de}
+.plate img{display:block;width:100%;height:auto;border-radius:10px}
+.shot{border-radius:var(--radius);border:1px solid var(--line-hi);overflow:hidden;box-shadow:var(--shadow);background:var(--panel)}
+.shot img{display:block;width:100%;height:auto}
+.qa{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:34px;align-items:center;margin-bottom:56px}
+.qa:last-child{margin-bottom:0}
+.qa h3{font-size:30px;line-height:1.05;letter-spacing:-.03em;margin:10px 0 14px}
+.qa p{color:var(--muted);font-size:16px;margin:0 0 12px}
+.qa .k{font:700 12px/1 "SFMono-Regular",Consolas,monospace;letter-spacing:.14em;color:var(--violet)}
+.facts{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.fact{border:1px solid var(--line);border-radius:12px;padding:8px 12px;font-size:13px;background:rgba(11,27,46,.7)}
+.fact b{font-family:"SFMono-Regular",Consolas,monospace}
+.split2{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:36px;align-items:center}
+ul.ticks{list-style:none;padding:0;margin:18px 0 0;display:grid;gap:10px}
+ul.ticks li{display:flex;gap:10px;color:var(--muted);font-size:15px}
+ul.ticks li svg{flex:none;color:var(--green);margin-top:3px}
+ul.ticks b{color:var(--text)}
+
+/* code */
+pre.code{margin:0;background:#04101c;border:1px solid var(--line);border-radius:16px;padding:18px;overflow:auto;font:13px/1.65 "SFMono-Regular",Consolas,monospace;color:#d6e6f5}
+.k1{color:var(--cyan)}.k2{color:var(--amber)}.k3{color:var(--muted-2)}.k4{color:var(--green)}
+
+/* license and cta */
+.free{border:1px solid var(--line-hi);border-radius:28px;padding:44px;background:radial-gradient(600px 300px at 90% 0,rgba(155,117,255,.13),transparent 70%),linear-gradient(180deg,rgba(15,38,63,.9),rgba(8,24,39,.9))}
+.free h2{font-size:clamp(32px,4vw,52px)}
+.cta{text-align:center;padding:110px 0 120px}
+.cta h2{margin-bottom:16px}
+.cta p{color:var(--muted);font-size:18px;margin:0 auto 30px;max-width:640px}
+.cta pre.code{max-width:760px;margin:0 auto 30px;text-align:left}
+footer{border-top:1px solid rgba(27,66,102,.5);padding:28px 0;color:var(--muted-2);font-size:13.5px;position:relative;z-index:2}
+footer .wrap{display:flex;gap:18px;flex-wrap:wrap;justify-content:space-between}
+footer a{color:var(--muted)}
+
+[data-reveal]{opacity:0;transform:translateY(18px);transition:opacity .7s ease,transform .7s ease}
+[data-reveal].in{opacity:1;transform:none}
+@media(max-width:1100px){.links{display:none}.menu{display:inline-flex}.links.open{display:flex;position:absolute;top:70px;left:0;right:0;flex-direction:column;background:rgba(6,17,31,.97);padding:12px 22px;border-bottom:1px solid var(--line)}
+ .hero{grid-template-columns:minmax(0,1fr)}.g4{grid-template-columns:repeat(2,minmax(0,1fr))}.steps{grid-template-columns:repeat(2,minmax(0,1fr))}.qa,.split2{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:720px){.shead{grid-template-columns:minmax(0,1fr);gap:6px}.g2,.g3,.g4,.steps{grid-template-columns:minmax(0,1fr)}.nav .btn.primary,.mock .tabs{display:none}.splitlab{font-size:11px}.hero{padding-top:54px}.section{padding:70px 0}.nav .btn.gh{display:none}.free{padding:28px}.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{animation:none!important;transition:none!important}[data-reveal]{opacity:1;transform:none}#field{display:none}}
+</style>
+</head>
+<body id="top">
+<canvas id="field" aria-hidden="true"></canvas><div class="glow" aria-hidden="true"></div><div class="gridfade" aria-hidden="true"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-arrow" viewBox="0 0 16 16"><path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-out" viewBox="0 0 16 16"><path d="M6 3h7v7M13 3 4 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-check" viewBox="0 0 16 16"><path d="M3 8.5 6.5 12 13 4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-x" viewBox="0 0 20 20"><path d="M5 5l10 10M15 5 5 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-graph" viewBox="0 0 20 20"><rect x="2" y="3" width="6" height="5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="12" y="3" width="6" height="5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="7" y="13" width="6" height="5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 5.5h4M5 8v3h5v2M15 8v3h-5" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+  <symbol id="i-cube" viewBox="0 0 20 20"><path d="M10 2 17 6v8l-7 4-7-4V6z M3 6l7 4 7-4 M10 10v8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 20 20"><rect x="4" y="9" width="12" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7 9V6a3 3 0 0 1 6 0v3" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+  <symbol id="i-target" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="10" cy="10" r="3.5" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="10" cy="10" r=".8" fill="currentColor"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 20 20"><path d="M2 10s3-5.5 8-5.5S18 10 18 10s-3 5.5-8 5.5S2 10 2 10z" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="10" cy="10" r="2.6" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+  <symbol id="i-coin" viewBox="0 0 20 20"><ellipse cx="10" cy="6" rx="6" ry="2.6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M4 6v8c0 1.4 2.7 2.6 6 2.6s6-1.2 6-2.6V6M4 10c0 1.4 2.7 2.6 6 2.6s6-1.2 6-2.6" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+  <symbol id="i-plug" viewBox="0 0 20 20"><path d="M7 2v4M13 2v4M5 6h10v3a5 5 0 0 1-10 0zM10 14v4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 20 20"><path d="M5 2h7l3 3v13H5z M12 2v3h3 M8 9h5M8 12h5M8 15h3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+  <symbol id="i-cloud" viewBox="0 0 20 20"><path d="M6 15h8.5a3.5 3.5 0 0 0 .3-7A5 5 0 0 0 5 8.5 3.3 3.3 0 0 0 6 15z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 20 20"><path d="m10 3 8 4-8 4-8-4zM2 11l8 4 8-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+  <symbol id="i-gh" viewBox="0 0 16 16"><path fill="currentColor" d="M8 0C3.6 0 0 3.6 0 8c0 3.5 2.3 6.5 5.5 7.6.4.1.5-.2.5-.4v-1.4c-2.2.5-2.7-1-2.7-1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.3 1.9.9 2.4.7.1-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-4 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8.6-.2 1.3-.3 2-.3s1.4.1 2 .3c1.5-1 2.2-.8 2.2-.8.4 1.1.2 1.9.1 2.1.5.6.8 1.3.8 2.1 0 3.1-1.9 3.7-3.7 3.9.3.3.6.8.6 1.5v2.2c0 .2.1.5.6.4C13.7 14.5 16 11.5 16 8c0-4.4-3.6-8-8-8z"/></symbol>
+</svg>
+
+<header>
+  <div class="wrap nav">
+    <a class="logo" href="#top" aria-label="IDSLab home">
+      <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#0b1b2e" stroke="#286995"/><rect x="5" y="8" width="9" height="6" rx="2" fill="#43d7ff"/><rect x="18" y="8" width="9" height="6" rx="2" fill="#9b75ff"/><rect x="11.5" y="19" width="9" height="6" rx="2" fill="#39d6a3"/><path d="M14 11h4M9.5 14v3h6.5v2M22.5 14v3H16" stroke="#7896b1" stroke-width="1.3" fill="none"/></svg>
+      <span>IDS<b>Lab</b></span>
+    </a>
+    <nav class="links" id="links" aria-label="Sections">
+      <a href="#why">Why</a><a href="#how">How it works</a><a href="#answer">The answer</a><a href="#builder">Builder</a>
+      <a href="#dashboard">Dashboard</a><a href="#features">Features</a><a href="#license">Free software</a>
+    </nav>
+    <button class="menu" id="menu" aria-expanded="false" aria-controls="links">Menu</button>
+    <a class="btn gh" href="https://github.com/hashtagRR/IDSLab"><svg class="i"><use href="#i-gh"/></svg>GitHub</a>
+    <a class="btn primary" href="#start">Get started <svg class="i"><use href="#i-arrow"/></svg></a>
+  </div>
+</header>
+
+<main>
+<section class="wrap hero">
+  <div data-reveal>
+    <div class="eyebrow">Staged IDS evaluation</div>
+    <h1>Does every stage <span class="grad">earn its place?</span></h1>
+    <p class="lede">IDSLab evaluates staged (cascade) network intrusion detection systems under one fixed protocol, and compares each design with its own first stage.</p>
+    <p class="sub">Describe the stages, the model in each and the routes between them in one YAML file, or draw them in the web builder. IDSLab fits the design, makes every choice on validation data, reads the test set once, and shows what each stage adds.</p>
+    <div class="ctas">
+      <a class="btn primary" href="#start">Get started <svg class="i"><use href="#i-arrow"/></svg></a>
+      <span class="install mono"><span>$</span> pip install git+https://github.com/hashtagRR/IDSLab.git <button class="copy" data-copy="pip install git+https://github.com/hashtagRR/IDSLab.git" type="button">copy</button></span>
+    </div>
+  </div>
+  <div class="mock" data-reveal aria-label="An IDSLab result, shown as an app panel">
+    <div class="mock-top"><b>IDSLab</b><span class="muted" style="font-size:12.5px">r1-router-gate</span>
+      <div class="tabs"><span class="on">Overview</span><span>Report</span><span>Units</span><span>Files</span></div></div>
+    <div class="mock-body">
+      <div class="mbox">
+        <h4>Cascade map, frozen on VAL</h4>
+        <svg viewBox="0 0 520 150" width="100%" role="img" aria-label="binary routes attacks to router; router routes attacks to ATTACK and the rest to gate; gate routes anomalous flows to ATTACK and normal ones to BENIGN">
+          <defs><marker id="ma" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8z" fill="#7896b1"/></marker></defs>
+          <g fill="none" stroke="#7896b1" stroke-width="1.4">
+            <path d="M118 34 C150 34 150 34 178 34" marker-end="url(#ma)"/><path d="M296 34 C326 34 326 34 354 34" marker-end="url(#ma)"/>
+            <path d="M60 58 V102" marker-end="url(#ma)"/><path d="M238 58 V102" marker-end="url(#ma)"/>
+            <path d="M392 58 V102" marker-end="url(#ma)"/><path d="M450 58 V102" marker-end="url(#ma)"/>
+          </g>
+          <g font-family="ui-sans-serif,system-ui,sans-serif">
+            <rect x="6" y="12" width="112" height="46" rx="9" fill="#0b1b2e" stroke="#43d7ff" stroke-width="1.6"/><text x="16" y="31" fill="#f4f9ff" font-size="13" font-weight="700">binary</text><text x="16" y="48" fill="#a7bed4" font-size="10.5">random forest, 0.5</text>
+            <rect x="182" y="12" width="114" height="46" rx="9" fill="#0b1b2e" stroke="#43d7ff" stroke-width="1.2"/><text x="192" y="31" fill="#f4f9ff" font-size="13" font-weight="700">router</text><text x="192" y="48" fill="#a7bed4" font-size="10.5">cutoff 0.6 on VAL</text>
+            <rect x="358" y="12" width="140" height="46" rx="9" fill="#0b1b2e" stroke="#39d6a3" stroke-width="1.2"/><text x="368" y="31" fill="#f4f9ff" font-size="13" font-weight="700">gate</text><text x="368" y="48" fill="#a7bed4" font-size="10.5">isolation forest, 1%</text>
+            <text x="126" y="27" fill="#7896b1" font-size="10">attack</text><text x="302" y="27" fill="#7896b1" font-size="10">benign</text>
+            <rect x="22" y="106" width="78" height="26" rx="13" fill="rgba(57,214,163,.12)" stroke="#39d6a3"/><text x="61" y="123" fill="#39d6a3" font-size="10.5" font-weight="800" text-anchor="middle">BENIGN</text>
+            <rect x="200" y="106" width="78" height="26" rx="13" fill="rgba(255,111,138,.1)" stroke="#ff6f8a"/><text x="239" y="123" fill="#ff6f8a" font-size="10.5" font-weight="800" text-anchor="middle">ATTACK</text>
+            <rect x="354" y="106" width="76" height="26" rx="13" fill="rgba(255,111,138,.1)" stroke="#ff6f8a"/><text x="392" y="123" fill="#ff6f8a" font-size="10.5" font-weight="800" text-anchor="middle">ATTACK</text>
+            <rect x="436" y="106" width="76" height="26" rx="13" fill="rgba(57,214,163,.12)" stroke="#39d6a3"/><text x="474" y="123" fill="#39d6a3" font-size="10.5" font-weight="800" text-anchor="middle">BENIGN</text>
+          </g>
+        </svg>
+      </div>
+      <div class="kpis">
+        <div class="kpi"><small>Cascade</small><b>0.839</b></div>
+        <div class="kpi"><small>First stage</small><b>0.841</b></div>
+        <div class="kpi"><small>Difference</small><b style="color:var(--red)">-0.002</b></div>
+      </div>
+      <div class="mbox">
+        <h4>What each stage adds on TEST (3 seeds, synthetic data)</h4>
+        <table class="vt">
+          <tr><td><b>binary</b></td><td class="muted">kept 3 of 3</td><td class="n">+0.210</td><td style="text-align:right"><span class="pill g">CARRIES THE RESULT</span></td></tr>
+          <tr><td><b>router</b></td><td class="muted">kept 2 of 3</td><td class="n">-0.003</td><td style="text-align:right"><span class="pill r">ADDS NOTHING HERE</span></td></tr>
+          <tr><td><b>gate</b></td><td class="muted">kept 2 of 3</td><td class="n">-0.001</td><td style="text-align:right"><span class="pill r">ADDS NOTHING HERE</span></td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="why">
+  <div class="wrap">
+    <div class="shead" data-reveal><div class="num">01 / Why</div><div>
+      <h2>A cascade can look better without being better.</h2>
+      <p>A staged IDS lets a first classifier see every flow and sends some of them to later stages: a second classifier, an anomaly detector, a type classifier. Gains over a single model are common in published designs, and easy to overstate.</p></div></div>
+    <div class="grid g4">
+      <div class="card bad" data-reveal><div class="ic"><svg><use href="#i-x"/></svg></div><h3>Tuned on the test set</h3><p>Thresholds and stage choices picked while looking at the data the result is reported on.</p></div>
+      <div class="card bad" data-reveal><div class="ic"><svg><use href="#i-x"/></svg></div><h3>The wrong baseline</h3><p>The cascade beats a different single model, not its own first stage tuned as carefully.</p></div>
+      <div class="card bad" data-reveal><div class="ic"><svg><use href="#i-x"/></svg></div><h3>A threshold would do</h3><p>The same gain could come from moving the first stage's threshold, with no extra stage at all.</p></div>
+      <div class="card bad" data-reveal><div class="ic"><svg><use href="#i-x"/></svg></div><h3>Dead stages</h3><p>Nobody checks what each stage contributes, so a stage that does nothing stays in the design.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="how">
+  <div class="wrap">
+    <div class="shead" data-reveal><div class="num">02 / How it works</div><div>
+      <h2>One protocol for every design.</h2>
+      <p>The same rules run for every cascade, so two designs, or two papers, compare on equal terms.</p></div></div>
+    <div class="steps">
+      <div class="step" data-reveal><h3>Describe</h3><p>Stages, the model in each, decisions and routes: one YAML file, or the visual builder. Any acyclic graph.</p></div>
+      <div class="step" data-reveal><h3>Split</h3><p>Per seed: FIT-base and CAL to fit and calibrate, VAL for every choice, TEST locked away.</p></div>
+      <div class="step" data-reveal><h3>Choose on VAL</h3><p>Models, thresholds and budgets chosen stage by stage. Switching a stage off is always an option; ties go to off.</p></div>
+      <div class="step" data-reveal><h3>Read TEST once</h3><p>The frozen cascade next to its first stage alone, with bootstrap intervals, over several seeds.</p></div>
+    </div>
+    <div data-reveal>
+      <div class="splitbar" role="img" aria-label="Split per seed: FIT-base 48 percent, CAL 12 percent, VAL 15 percent, TEST 25 percent">
+        <div style="flex:48;background:var(--cyan)">FIT-base</div><div style="flex:12;background:var(--violet)">CAL</div>
+        <div style="flex:15;background:var(--amber)">VAL</div><div style="flex:25;background:#7896b1">TEST</div></div>
+      <div class="splitlab"><div style="flex:48">fits every stage</div><div style="flex:12">calibrates</div><div style="flex:15">every choice</div><div style="flex:25">read once, after the freeze</div></div>
+    </div>
+    <div class="split2" style="margin-top:56px">
+      <div data-reveal>
+        <div class="num" style="padding:0 0 10px">The config</div>
+        <pre class="code"><span class="k1">entry</span>: binary
+<span class="k1">stages</span>:
+  <span class="k1">binary</span>:                    <span class="k3"># sees every flow</span>
+    <span class="k1">kind</span>: classifier
+    <span class="k1">candidates</span>: [{<span class="k1">class</span>: <span class="k4">RandomForestClassifier</span>}]
+    <span class="k1">decision</span>: {<span class="k1">threshold</span>: <span class="k2">0.5</span>, <span class="k1">off</span>: benign}
+    <span class="k1">routes</span>: {<span class="k1">attack</span>: router, <span class="k1">benign</span>: BENIGN}
+  <span class="k1">router</span>:                    <span class="k3"># keeps confident attacks</span>
+    <span class="k1">kind</span>: classifier
+    <span class="k1">decision</span>: {<span class="k1">grid</span>: [<span class="k2">0.5, 0.6, 0.7</span>], <span class="k1">off</span>: attack}
+    <span class="k1">routes</span>: {<span class="k1">attack</span>: ATTACK, <span class="k1">benign</span>: gate}
+  <span class="k1">gate</span>:                      <span class="k3"># trained on benign flows only</span>
+    <span class="k1">kind</span>: detector
+    <span class="k1">fit_on</span>: benign
+    <span class="k1">decision</span>: {<span class="k1">budget</span>: [<span class="k2">0.01, 0.05</span>], <span class="k1">off</span>: normal}
+    <span class="k1">routes</span>: {<span class="k1">anomalous</span>: ATTACK, <span class="k1">normal</span>: BENIGN}</pre>
+      </div>
+      <div class="plate" data-reveal><img src="img/design-r1-router-gate.svg" alt="Cascade map of the design: binary, router and gate with their routes to BENIGN and ATTACK" loading="lazy" /></div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="answer">
+  <div class="wrap">
+    <div class="shead" data-reveal><div class="num">03 / The answer</div><div>
+      <h2>Three questions, every report.</h2>
+      <p>Measured on the design above, on the synthetic example data that ships with IDSLab (<span class="mono">idslab example</span>).</p></div></div>
+    <div class="qa">
+      <div data-reveal><span class="k">QUESTION 1</span><h3>Does the cascade beat its first stage alone?</h3>
+        <p>The router and gate were chosen on VAL, where they helped. On TEST the cascade ends below its first stage. IDSLab reports the difference with paired bootstrap intervals and the spread over seeds.</p>
+        <div class="facts"><span class="fact">VAL <b>0.827 to 0.838</b></span><span class="fact">TEST <b>0.844 to 0.839</b></span></div></div>
+      <div class="plate" data-reveal><img src="img/stage-steps.svg" alt="Accuracy as each stage is added: VAL rises from 0.8267 to 0.8383 while TEST falls from 0.8443 to 0.8390" loading="lazy" /></div>
+    </div>
+    <div class="qa">
+      <div data-reveal><span class="k">QUESTION 2</span><h3>Could a threshold do the same?</h3>
+        <p>The frontier gap compares the cascade's detection rate with the best the first stage reaches at the same false alarm rate by moving its threshold. A positive gap means the stages reach a point no threshold can.</p>
+        <div class="facts"><span class="fact">gap <b>-0.010</b>, just below the curve</span></div></div>
+      <div class="plate" data-reveal><img src="img/frontier-gap.svg" alt="The first stage's ROC curve with its upper hull; the cascade's point lies 0.010 below the hull" loading="lazy" /></div>
+    </div>
+    <div class="qa">
+      <div data-reveal><span class="k">QUESTION 3</span><h3>What does each stage do?</h3>
+        <p>Every TEST flow's path is recorded. Here the router passes 73 attacks to the gate, and the gate catches none of them; switching it off costs nothing, and the report's stage table says so.</p>
+        <div class="facts"><span class="fact"><b>3,000</b> TEST flows</span><span class="fact">gate catches <b>0 of 73</b></span></div></div>
+      <div class="plate" data-reveal><img src="img/flow-map.svg" alt="Flow map of 3,000 TEST flows through binary, router and gate, split into true attacks and true benign flows" loading="lazy" /></div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="builder">
+  <div class="wrap">
+    <div class="shead" data-reveal><div class="num">04 / Visual builder</div><div>
+      <h2>Draw the design. Get the config.</h2>
+      <p>Drag stages onto a canvas, wire each output to a stage or a terminal, and set models, decisions and pipelines in a side panel. The server writes the YAML and validates it on every change.</p></div></div>
+    <div class="split2">
+      <div data-reveal>
+        <ul class="ticks">
+          <li><svg class="i"><use href="#i-check"/></svg><span><b>Ports and wires.</b> Drag an output port onto a stage or onto ATTACK or BENIGN; an unrouted port shows in red.</span></li>
+          <li><svg class="i"><use href="#i-check"/></svg><span><b>Score features.</b> Drag a stage's score onto a later stage to use it as an input, out-of-fold on training rows.</span></li>
+          <li><svg class="i"><use href="#i-check"/></svg><span><b>A model catalog.</b> scikit-learn, XGBoost, LightGBM, PyOD and PyTorch, with parameter forms read from each class.</span></li>
+          <li><svg class="i"><use href="#i-check"/></svg><span><b>Reads your data.</b> Suggests the label, type and text columns from a sample of the file.</span></li>
+          <li><svg class="i"><use href="#i-check"/></svg><span><b>Plain YAML out.</b> The same file the command line runs; layout kept beside it.</span></li>
+        </ul>
+      </div>
+      <div class="shot" data-reveal><img src="img/dashboard-builder.png" alt="The visual builder: a four-stage design on the canvas with the gate's settings open in the side panel" loading="lazy" /></div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="dashboard">
+  <div class="wrap">
+    <div class="shead" data-reveal><div class="num">05 / Local dashboard</div><div>
+      <h2>Every command, in the browser.</h2>
+      <p>Validate, run, rebuild reports, export splits and browse results without leaving the page. Jobs run the real command line in the background, so a run from the browser and one from a shell resume each other.</p></div></div>
+    <div class="shot" data-reveal><img src="img/dashboard-run.png" alt="The dashboard's run page: headline figures, a systems chart, cascade minus each control, stage effects and the frozen cascade of one seed" loading="lazy" /></div>
+    <div class="grid g3" style="margin-top:14px">
+      <div class="card" data-reveal><div class="ic"><svg><use href="#i-eye"/></svg></div><h3>Runs and units</h3><p>Headline figures, controls, stage effects, the frozen cascade of any seed and its full selection trace.</p></div>
+      <div class="card" data-reveal><div class="ic"><svg><use href="#i-doc"/></svg></div><h3>Config editor</h3><p>YAML with validation as you type and a live cascade preview, next to the run, report and export panels.</p></div>
+      <div class="card" data-reveal><div class="ic"><svg><use href="#i-lock"/></svg></div><h3>Local by design</h3><p>Listens on 127.0.0.1, reads and writes only inside the workspace, refuses requests from other sites.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="features">
+  <div class="wrap">
+    <div class="shead" data-reveal><div class="num">06 / Features</div><div>
+      <h2>Built for the questions cascades raise.</h2>
+      <p>Everything below runs from the same config, with the same protocol and controls.</p></div></div>
+    <div class="grid g3">
+      <div class="card" data-reveal><span class="tag">ANY GRAPH</span><div class="ic"><svg><use href="#i-graph"/></svg></div><h3>Any staged design</h3><p>Classifier, type and anomaly stages in any acyclic graph. Stages can re-check, clear alarms, name attack types or feed scores to later stages.</p></div>
+      <div class="card" data-reveal><span class="tag">ANY MODEL</span><div class="ic"><svg><use href="#i-cube"/></svg></div><h3>Any model</h3><p>scikit-learn style estimators, XGBoost, LightGBM, PyOD, PyTorch, or your own class behind a small adapter.</p></div>
+      <div class="card" data-reveal><span class="tag">GPU JOBS</span><div class="ic"><svg><use href="#i-cloud"/></svg></div><h3>Models trained elsewhere</h3><p>Export the splits, train on a GPU, import the scores. IDSLab checks the file against its splits and rejects scores on rows the model trained on.</p></div>
+      <div class="card" data-reveal><span class="tag">ZERO-DAY</span><div class="ic"><svg><use href="#i-target"/></svg></div><h3>Unseen attacks</h3><p>Hold out each attack family in turn, or test types never seen in training, and report recall on them.</p></div>
+      <div class="card" data-reveal><span class="tag">COST</span><div class="ic"><svg><use href="#i-coin"/></svg></div><h3>Cost and latency</h3><p>Choose by the cost of missed attacks and false alarms. See how many flows reach each stage and what the cascade costs per flow.</p></div>
+      <div class="card" data-reveal><span class="tag">SELECTION</span><div class="ic"><svg><use href="#i-layers"/></svg></div><h3>Honest selection</h3><p>Greedy selection with an off option, a variant that keeps fixed stages on, and a joint check that measures what greedy missed.</p></div>
+      <div class="card" data-reveal><span class="tag">REPORTS</span><div class="ic"><svg><use href="#i-doc"/></svg></div><h3>Reports you can read</h3><p>Markdown, JSON and a self-contained HTML page with the cascade map, controls, unseen-attack grid and per-seed configuration.</p></div>
+      <div class="card" data-reveal><span class="tag">RESUME</span><div class="ic"><svg><use href="#i-lock"/></svg></div><h3>Reproducible runs</h3><p>Every unit is fingerprinted by config, data, split, score files and version; finished seeds are reused only when all match.</p></div>
+      <div class="card" data-reveal><span class="tag">PLUGINS</span><div class="ic"><svg><use href="#i-plug"/></svg></div><h3>Plugins</h3><p>Packages add models, pipeline steps and objectives through an entry point; they appear in the builder and in configs.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="outputs">
+  <div class="wrap split2">
+    <div data-reveal>
+      <div class="num" style="padding:0 0 10px">07 / Outputs</div>
+      <h2>A result you can inspect and rerun.</h2>
+      <p class="muted" style="font-size:17px">Each experiment writes a report page, Markdown and JSON aggregates, and per seed the chosen configuration, the selection trace, every TEST flow's path and the split ids.</p>
+      <ul class="ticks">
+        <li><svg class="i"><use href="#i-check"/></svg><span><b>report.html</b> one self-contained page, no scripts, no network</span></li>
+        <li><svg class="i"><use href="#i-check"/></svg><span><b>summary.json</b> per seed: choices, trace, controls, stage cost</span></li>
+        <li><svg class="i"><use href="#i-check"/></svg><span><b>per_flow.parquet</b> every TEST flow's scores, path and verdicts</span></li>
+        <li><svg class="i"><use href="#i-check"/></svg><span><b>DONE</b> the fingerprints a rerun is checked against</span></li>
+      </ul>
+    </div>
+    <div class="plate" data-reveal style="padding:0;overflow:hidden"><img src="img/report-page.png" alt="The report page of the example: headline figures, cascade map, systems table and frozen configuration per run" loading="lazy" /></div>
+  </div>
+</section>
+
+<section class="section" id="license">
+  <div class="wrap">
+    <div class="free" data-reveal>
+      <div class="num" style="padding:0 0 10px">08 / Free software</div>
+      <h2>Free to use, study, change and share.</h2>
+      <p class="muted" style="font-size:17px;max-width:780px">IDSLab is released under the GNU Affero General Public License, version 3 or later. Use it for research and teaching, read every rule it applies, and publish your changes under the same terms.</p>
+      <div class="ctas" style="margin-top:22px">
+        <a class="btn" href="https://github.com/hashtagRR/IDSLab/blob/main/LICENSE">License <svg class="i"><use href="#i-out"/></svg></a>
+        <a class="btn" href="https://github.com/hashtagRR/IDSLab/blob/main/CITATION.cff">How to cite <svg class="i"><use href="#i-out"/></svg></a>
+        <a class="btn" href="https://github.com/hashtagRR/IDSLab/blob/main/docs/limitations.md">Known limitations <svg class="i"><use href="#i-out"/></svg></a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="cta" id="start">
+  <div class="wrap">
+    <div class="eyebrow" style="justify-content:center">Get started</div>
+    <h2 style="margin-top:18px">Test your own cascade.</h2>
+    <p>Python 3.10 or newer and Git. The example writes synthetic flows and three reference designs, so the first run takes a minute. Step-by-step guides for Windows, macOS and GNU/Linux are in the install guide.</p>
+    <pre class="code" data-reveal><span class="k3">$</span> python3 -m venv .venv &amp;&amp; source .venv/bin/activate
+<span class="k3">$</span> pip install git+https://github.com/hashtagRR/IDSLab.git
+<span class="k3">$</span> idslab example demo                              <span class="k3"># synthetic data, three reference designs</span>
+<span class="k3">$</span> idslab run demo/r1_router_gate.yaml --out demo/runs
+<span class="k3">$</span> idslab dashboard --workspace demo --open         <span class="k3"># the builder and the results in the browser</span>
+
+<span class="k3"># Windows, PowerShell, in a virtual environment: programs are in .venv\Scripts</span>
+<span class="k3">&gt;</span> py -3.12 -m venv .venv; .\.venv\Scripts\pip install git+https://github.com/hashtagRR/IDSLab.git
+<span class="k3">&gt;</span> .\.venv\Scripts\idslab example demo
+<span class="k3">&gt;</span> .\.venv\Scripts\idslab dashboard --workspace demo --open</pre>
+    <div class="ctas" style="justify-content:center">
+      <a class="btn primary" href="https://github.com/hashtagRR/IDSLab/blob/main/docs/getting-started.md">Getting started guide <svg class="i"><use href="#i-arrow"/></svg></a>
+      <a class="btn" href="https://github.com/hashtagRR/IDSLab/blob/main/INSTALL.md">Install guide</a>
+      <a class="btn" href="https://github.com/hashtagRR/IDSLab/blob/main/docs/config-reference.md">Config reference</a>
+      <a class="btn" href="https://github.com/hashtagRR/IDSLab"><svg class="i"><use href="#i-gh"/></svg>Source on GitHub</a>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>IDSLab, an evaluation framework for staged intrusion detection systems. AGPL-3.0-or-later.</span>
+    <span><a href="https://github.com/hashtagRR/IDSLab">GitHub</a> &nbsp; <a href="https://github.com/hashtagRR/IDSLab/blob/main/CHANGELOG.md">Changelog</a> &nbsp; <a href="#top">Back to top</a></span>
+  </div>
+</footer>
+
+<script>
+// background: slow drifting stage nodes joined by thin links
+(() => {
+  const c = document.getElementById("field"), ctx = c.getContext("2d");
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  let W, H, dpr, nodes = [];
+  const colors = ["67,215,255", "155,117,255", "57,214,163"];
+  function size() {
+    dpr = Math.min(devicePixelRatio || 1, 2);
+    W = c.width = innerWidth * dpr; H = c.height = innerHeight * dpr;
+    const n = Math.round(Math.min(46, innerWidth / 30));
+    nodes = Array.from({length: n}, () => ({x: Math.random() * W, y: Math.random() * H,
+      vx: (Math.random() - .5) * .18 * dpr, vy: (Math.random() - .5) * .18 * dpr, c: colors[Math.random() * 3 | 0]}));
+  }
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    const reach = 150 * dpr;
+    for (const a of nodes) {
+      a.x += a.vx; a.y += a.vy;
+      if (a.x < 0 || a.x > W) a.vx *= -1;
+      if (a.y < 0 || a.y > H) a.vy *= -1;
+    }
+    for (let i = 0; i < nodes.length; i++) for (let j = i + 1; j < nodes.length; j++) {
+      const a = nodes[i], b = nodes[j], d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (d < reach) { ctx.strokeStyle = `rgba(86,150,204,${.16 * (1 - d / reach)})`; ctx.lineWidth = dpr; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
+    }
+    for (const a of nodes) { ctx.fillStyle = `rgba(${a.c},.55)`; ctx.fillRect(a.x - 3 * dpr, a.y - 2 * dpr, 6 * dpr, 4 * dpr); }
+    requestAnimationFrame(draw);
+  }
+  addEventListener("resize", size); size(); draw();
+})();
+// reveal on scroll, active nav link, mobile menu, copy buttons
+(() => {
+  const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } }), {threshold: .12});
+  document.querySelectorAll("[data-reveal]").forEach((el) => io.observe(el));
+  const links = [...document.querySelectorAll(".links a")];
+  const spy = new IntersectionObserver((es) => es.forEach((e) => {
+    if (e.isIntersecting) links.forEach((a) => a.classList.toggle("on", a.getAttribute("href") === "#" + e.target.id));
+  }), {rootMargin: "-45% 0px -50% 0px"});
+  document.querySelectorAll("section[id]").forEach((s) => spy.observe(s));
+  const menu = document.getElementById("menu"), nav = document.getElementById("links");
+  menu.addEventListener("click", () => { const open = nav.classList.toggle("open"); menu.setAttribute("aria-expanded", open); });
+  nav.addEventListener("click", (e) => { if (e.target.closest("a")) { nav.classList.remove("open"); menu.setAttribute("aria-expanded", "false"); } });
+  document.querySelectorAll("[data-copy]").forEach((b) => b.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = "copied"; setTimeout(() => (b.textContent = "copy"), 1400); } catch { b.textContent = "select it"; }
+  }));
+})();
+</script>
+</body>
+</html>

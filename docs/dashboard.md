@@ -13,6 +13,9 @@ idslab dashboard --workspace demo --open
 
 ![A run in the dashboard](img/dashboard-run.png)
 
+On Windows, see [Windows, step by step](../INSTALL.md#windows) for installing, starting
+and stopping the dashboard.
+
 The page works without a network connection and stores nothing outside the workspace (the theme
 choice and the last output folder per command are kept in the browser).
 

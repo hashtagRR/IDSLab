@@ -1,5 +1,7 @@
 # IDSLab
 
+**[hashtagRR.github.io/IDSLab](https://hashtagRR.github.io/IDSLab)**
+
 [![tests](https://github.com/hashtagRR/IDSLab/actions/workflows/tests.yml/badge.svg)](https://github.com/hashtagRR/IDSLab/actions/workflows/tests.yml)
 
 <p align="center">
@@ -116,11 +118,27 @@ attack families held out of training, and per-type results when the design names
 
 ## Quickstart
 
+Download the code (green **Code** button, **Download ZIP**, then extract; or `git clone
+https://github.com/hashtagRR/IDSLab.git`) and open a terminal in the folder that holds
+`pyproject.toml`. [INSTALL.md](https://github.com/hashtagRR/IDSLab/blob/main/INSTALL.md) has
+step-by-step guides for Windows, macOS and GNU/Linux.
+
+**GNU/Linux and macOS**
+
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -e .
 .venv/bin/idslab example demo                                  # synthetic data, three reference designs
 .venv/bin/idslab run demo/r1_router_gate.yaml --out demo/runs  # fit, choose on VAL, report on TEST
 .venv/bin/idslab dashboard --workspace demo --open             # optional web UI
+```
+
+**Windows (PowerShell)**: the programs are in `.venv\Scripts`, and PowerShell needs the leading `.\`
+
+```powershell
+py -3.12 -m venv .venv; .\.venv\Scripts\pip install -e .
+.\.venv\Scripts\idslab example demo
+.\.venv\Scripts\idslab run demo\r1_router_gate.yaml --out demo\runs
+.\.venv\Scripts\idslab dashboard --workspace demo --open   # keep the window open; Ctrl+C stops it
 ```
 
 The result is `demo/runs/r1-router-gate/report.html`, or the same in the dashboard:
@@ -130,7 +148,7 @@ The result is `demo/runs/r1-router-gate/report.html`, or the same in the dashboa
        alt="The IDSLab dashboard showing one experiment: headline figures, a systems chart, cascade minus each control, stage effects and the frozen cascade of seed 0.">
 </p>
 
-Optional model libraries, Windows and troubleshooting:
+Step-by-step Windows setup, optional model libraries and troubleshooting:
 [INSTALL.md](https://github.com/hashtagRR/IDSLab/blob/main/INSTALL.md).
 
 ## Documentation
@@ -150,6 +168,7 @@ Optional model libraries, Windows and troubleshooting:
 | [Design notes](https://github.com/hashtagRR/IDSLab/blob/main/DESIGN.md) | the reasoning behind each protocol rule |
 | [Install guide](https://github.com/hashtagRR/IDSLab/blob/main/INSTALL.md) | platform setup, extras, tests and checks |
 | [Changelog](https://github.com/hashtagRR/IDSLab/blob/main/CHANGELOG.md) | what changed in each version |
+| [Project site](https://hashtagRR.github.io/IDSLab) | the project's overview page |
 
 ## Versions
 

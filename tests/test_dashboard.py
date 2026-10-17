@@ -72,7 +72,20 @@ def request(srv, method, path, body=None, headers=None) -> tuple[int, Any, http.
 # ---------- workspace ----------
 
 
-@pytest.mark.parametrize("bad", ["/etc/passwd", "../x", "a/../../x", ".hidden/secret.yaml", "~/x", "a/.git"])
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "/etc/passwd",
+        "../x",
+        "a/../../x",
+        ".hidden/secret.yaml",
+        "~/x",
+        "a/.git",
+        "C:x",
+        "a\\..\\..\\x",
+        "f:stream",
+    ],
+)
 def test_paths_outside_or_hidden_are_refused(ws_dir, bad):
     with pytest.raises(PathError):
         Workspace(str(ws_dir)).resolve(bad)

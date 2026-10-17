@@ -105,6 +105,17 @@ def _arg(ws: Workspace, path: str) -> str:
     return "./" + rel if rel.startswith("-") else rel  # never read as an option
 
 
+def _kill_tree_windows(proc: subprocess.Popen) -> None:
+    """End a job and the worker processes it started (Windows has no process groups to signal)."""
+    taskkill = os.path.join(os.environ.get("SYSTEMROOT", r"C:\Windows"), "System32", "taskkill.exe")
+    try:
+        subprocess.run(  # noqa: S603  (fixed program path, the job's own pid)
+            [taskkill, "/F", "/T", "/PID", str(proc.pid)], capture_output=True, check=False, timeout=30
+        )
+    except (OSError, subprocess.SubprocessError):
+        proc.terminate()  # taskkill missing or stuck: end at least the main process
+
+
 class Job:
     """At most one job: runs are CPU and memory heavy, and two runs of one config would race on
     the same seed folders."""
@@ -169,7 +180,7 @@ class Job:
                 if os.name == "posix":
                     os.killpg(proc.pid, signal.SIGTERM)
                 else:
-                    proc.terminate()
+                    _kill_tree_windows(proc)
             except ProcessLookupError:
                 pass
 
